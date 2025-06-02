@@ -109,7 +109,7 @@ export default class HijriDatePreferences extends ExtensionPreferences {
                 Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
             );
         } catch (e) {
-            log(`[HijriDatePrefs] could not load ${cssPath}: ${e}`);
+            console.log(`[HijriDatePrefs] could not load ${cssPath}: ${e}`);
         }
     }
 

@@ -15,24 +15,32 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
+
 //
-// SegmentedButtonRow: a row with toggle buttons
+// SegmentedButtonRow: a single row of toggle buttons, no hover on the label itself
 //
 const SegmentedButtonRow = GObject.registerClass(
 class SegmentedButtonRow extends PopupMenu.PopupBaseMenuItem {
     _init(title, items, activeIndex, onChange) {
         super._init({ activate: false });
 
-        this._label = new St.Label({ text: title, x_align: Clutter.ActorAlign.START });
+        this._label = new St.Label({
+            text: title,
+            x_align: Clutter.ActorAlign.START
+        });
         this._label.add_style_class_name('row-title');
         this.add_child(this._label);
 
+        // disable hover on the row itself
         this.reactive = false;
         this.track_hover = false;
         this.can_focus = false;
         this.add_style_class_name('no-row-hover');
 
-        const box = new St.BoxLayout({ style_class: 'linked', x_expand: false });
+        const box = new St.BoxLayout({
+            style_class: 'linked',
+            x_expand: false
+        });
         this.add_child(box);
 
         this._buttons = [];
@@ -42,7 +50,7 @@ class SegmentedButtonRow extends PopupMenu.PopupBaseMenuItem {
                 style_class: 'option-button',
                 toggle_mode: true,
                 reactive: true,
-                can_focus: true,
+                can_focus: true
             });
 
             if (idx === activeIndex)
@@ -72,8 +80,9 @@ class SegmentedButtonRow extends PopupMenu.PopupBaseMenuItem {
     }
 });
 
+
 //
-// Enumerations and helper texts
+// Enums and their human‐readable labels
 //
 const Language = {
     ENGLISH: 0,
@@ -95,7 +104,7 @@ const Position = {
     LEFT: 1,
     CENTER: 2,
     RIGHT: 3,
-    FAR_RIGHT: 4,
+    FAR_RIGHT: 4
 };
 
 const LanguageText = {
@@ -118,13 +127,14 @@ const PositionText = {
     [Position.LEFT]: 'Left',
     [Position.CENTER]: 'Center',
     [Position.RIGHT]: 'Right',
-    [Position.FAR_RIGHT]: 'Far Right',
+    [Position.FAR_RIGHT]: 'Far Right'
 };
 
 const DEFAULT_SPACING = 0;
 
+
 //
-// getHijriDate: returns a formatted Hijri date string
+// getHijriDate: build a Hijri date string according to user‐chosen format
 //
 function getHijriDate(
     lang = Language.ENGLISH,
@@ -140,14 +150,14 @@ function getHijriDate(
             : 'en-US-u-ca-islamic-umalqura';
         const numSys = (numLng === NumberLanguage.ARABIC) ? 'arab' : 'latn';
 
-        const fmt = new Intl.DateTimeFormat(locale, {
+        const parts = new Intl.DateTimeFormat(locale, {
             day: 'numeric',
             month: 'long',
             year: 'numeric',
             numberingSystem: numSys
         }).formatToParts(d);
 
-        const dict = Object.fromEntries(fmt
+        const dict = Object.fromEntries(parts
             .filter(p => ['day', 'month', 'year'].includes(p.type))
             .map(p => [p.type, p.value])
         );
@@ -155,18 +165,18 @@ function getHijriDate(
         const yearValue = dict.year;
         let out = fmtStr;
 
-        if (dict.day) {
+        if (dict.day)
             out = out.replace(/{day}/g, dict.day);
-        }
-        if (dict.month) {
+        if (dict.month)
             out = out.replace(/{month}/g, dict.month);
-        }
+
         out = out.replace(/{year}/g, showY ? yearValue : '');
         const suffixText = showY
             ? (suff === YearSuffixStyle.HEH ? ' هـ' : ' AH')
             : '';
         out = out.replace(/{suffix}/g, suffixText);
 
+        // collapse extra spaces/commas
         out = out.replace(/\s+/g, ' ')
                  .replace(/,\s*,+/g, ',')
                  .replace(/,+/g, ', ')
@@ -181,7 +191,7 @@ function getHijriDate(
 }
 
 //
-// HijriDateButton: the panel indicator with menu
+// HijriDateButton: the panel button + popup menu
 //
 const HijriDateButton = GObject.registerClass(
 class HijriDateButton extends PanelMenu.Button {
@@ -189,7 +199,9 @@ class HijriDateButton extends PanelMenu.Button {
         super._init(0.5, 'Hijri Date');
         this._extension = extension;
 
-        this.box = new St.BoxLayout({ style_class: 'panel-status-menu-box' });
+        this.box = new St.BoxLayout({
+            style_class: 'panel-status-menu-box'
+        });
         this.label = new St.Label({
             text: getHijriDate(
                 this._extension._language,
@@ -258,7 +270,9 @@ class HijriDateButton extends PanelMenu.Button {
         });
 
         this._timer = GLib.timeout_add_seconds(
-            GLib.PRIORITY_DEFAULT, 60, () => {
+            GLib.PRIORITY_DEFAULT,
+            60,
+            () => {
                 this._updateDate();
                 return GLib.SOURCE_CONTINUE;
             }
@@ -328,7 +342,10 @@ class HijriDateButton extends PanelMenu.Button {
         lbl.set_width(120);
         hboxRow.add_child(lbl);
 
-        const innerBox = new St.BoxLayout({ style_class: 'linked', x_expand: true });
+        const innerBox = new St.BoxLayout({
+            style_class: 'linked',
+            x_expand: true
+        });
         hboxRow.add_child(innerBox);
 
         const entry = new St.Entry({
@@ -451,30 +468,27 @@ class HijriDateButton extends PanelMenu.Button {
     }
 
     destroy() {
-        if (this._timer) {
+        if (this._timer)
             GLib.source_remove(this._timer);
-        }
-        if (this._settingsChangedId) {
+        if (this._settingsChangedId)
             this._extension._settings.disconnect(this._settingsChangedId);
-        }
-        if (this._spacer) {
+        if (this._spacer)
             this._spacer.destroy();
-        }
         super.destroy();
     }
 });
 
 export default class HijriDateDisplayExtension extends Extension {
-    _indicator = null;
-    _position = Position.LEFT;
-    _spacing = DEFAULT_SPACING;
-    _language = Language.ENGLISH;
+    _indicator      = null;
+    _position       = Position.LEFT;
+    _spacing        = DEFAULT_SPACING;
+    _language       = Language.ENGLISH;
     _numberLanguage = NumberLanguage.ENGLISH;
-    _showYear = false;
-    _yearSuffixStyle = YearSuffixStyle.AH;
-    _dateFormat = '{day} {month} {year} {suffix}';
-    _spacer = null;
-    _settings = null;
+    _showYear       = false;
+    _yearSuffixStyle= YearSuffixStyle.AH;
+    _dateFormat     = '{day} {month} {year} {suffix}';
+    _spacer         = null;
+    _settings       = null;
 
     constructor(metadata) {
         super(metadata);
@@ -483,15 +497,16 @@ export default class HijriDateDisplayExtension extends Extension {
     enable() {
         this._settings = this.getSettings('org.gnome.shell.extensions.hijridate');
 
-        this._position = this._settings.get_int('position');
-        this._spacing = this._settings.get_int('spacing');
-        this._language = this._settings.get_int('language');
+        this._position       = this._settings.get_int('position');
+        this._spacing        = this._settings.get_int('spacing');
+        this._language       = this._settings.get_int('language');
         this._numberLanguage = this._settings.get_int('number-language');
-        this._showYear = this._settings.get_boolean('show-year');
-        this._yearSuffixStyle = this._settings.get_int('year-suffix-style');
-        this._dateFormat = this._settings.get_string('date-format');
+        this._showYear       = this._settings.get_boolean('show-year');
+        this._yearSuffixStyle= this._settings.get_int('year-suffix-style');
+        this._dateFormat     = this._settings.get_string('date-format');
 
-        this._indicator = new HijriDateButton(this);
+        // (♦) Don’t create the indicator here and then destroy it immediately.
+        //     Just let _addToPanel() instantiate once.
         this._addToPanel();
     }
 
@@ -595,6 +610,6 @@ export default class HijriDateDisplayExtension extends Extension {
             this._indicator.destroy();
             this._indicator = null;
         }
-        log('Hijri Date extension disabled.');
+        console.log('Hijri Date extension disabled.');
     }
 }
