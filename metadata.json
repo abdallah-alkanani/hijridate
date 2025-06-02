@@ -1,0 +1,12 @@
+{
+    "name": "Hijri Date",
+    "description": "Add Hijri date to GNOME Shell panel",
+    "uuid": "hijridate@iwillcompletethisprojectinshallah",
+    "url": "https://github.com/yourusername/hijridate",
+    "shell-version": [
+        "45",
+        "46",
+        "47",
+        "48"
+    ]
+  }

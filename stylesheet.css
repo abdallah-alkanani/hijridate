@@ -1,0 +1,150 @@
+/* ──────────────────────────────────────────────────────────
+   1. Shared helper classes
+─────────────────────────────────────────────────────────── */
+.no-row-hover,
+.no-row-hover:hover,
+.no-row-hover:selected,
+.no-row-hover:focus {
+    background-color: transparent;
+}
+
+.row-title {                    /* bright white row label               */
+    color: #fff;
+    line-height: 1.1;           /* keeps label aligned with entry field */
+}
+.row-title:insensitive { opacity: 0.35; }  /* dim when row disabled      */
+
+/* used to give identical padding to custom popup-rows */
+.hijri-date-menu-item {
+    padding: 0.4em;
+}
+
+/* ──────────────────────────────────────────────────────────
+   2. Segmented-group container & option buttons
+─────────────────────────────────────────────────────────── */
+.linked {
+    background-color: rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 4px;
+    display: flex;              /* ensure children share baseline       */
+    align-items: center;
+}
+
+.option-button {
+    background: transparent;
+    color: rgba(255,255,255,0.75);
+    padding: 4px 18px;
+    border-radius: 8px;
+    transition: background-color 120ms, box-shadow 120ms, color 120ms;
+}
+.option-button:hover:not(:active) {
+    background-color: rgba(255,255,255,0.08);
+    box-shadow:
+        inset 0 0 0 1px rgba(255,255,255,0.30),
+        0 0 4px 2px rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.90);
+    text-decoration: underline;
+}
+.option-button:active,
+.option-button.active {         /* selected state                       */
+    background-color: rgba(255,255,255,0.18);
+    color: #fff;
+    font-weight: 600;
+}
+
+/* ──────────────────────────────────────────────────────────
+   3. Text entry used in popup menu
+─────────────────────────────────────────────────────────── */
+.option-entry {
+    padding: 4px 6px;
+    border-radius: 6px;
+    background-color: rgba(255,255,255,0.05);
+    color: #fff;
+    min-width: 120px;
+}
+
+/* ──────────────────────────────────────────────────────────
+   4. Token-insert buttons (prefs window)
+─────────────────────────────────────────────────────────── */
+.token-button {
+    margin: 2px;
+    padding: 0 8px;
+    background-color: rgba(53,132,228,0.20);
+    border: 1px solid rgba(53,132,228,0.50);
+    border-radius: 4px;
+    font-family: monospace;
+}
+.token-button:hover {
+    background-color: rgba(53,132,228,0.30);
+}
+
+/* ──────────────────────────────────────────────────────────
+   5. Help / preview text under format entry
+─────────────────────────────────────────────────────────── */
+.format-help-text,
+.format-help-text-popup {
+    font-size: 0.75em;
+    color: rgba(255,255,255,0.65);
+}
+.format-preview {
+    margin-top: 4px;
+    padding: 8px;
+    border-radius: 6px;
+    background-color: rgba(0,0,0,0.1);
+    font-style: italic;
+}
+.valid-preview  { color: rgba(87,227,137,0.9); }
+.error-preview  { color: rgba(246,97,81,0.9);  }
+
+/* validate borders on EntryRow */
+.adw-entry-row.error entry { border-color: #f66151; }
+.adw-entry-row.valid entry { border-color: rgba(53,132,228,.7); }
+
+/* ──────────────────────────────────────────────────────────
+   6. Year toggle switch (prefs)
+─────────────────────────────────────────────────────────── */
+.year-toggle-switch { margin-right: 8px; }
+
+/* ──────────────────────────────────────────────────────────
+   7. Top-panel indicator
+─────────────────────────────────────────────────────────── */
+.hijri-date-button {
+    padding: 0 6px;
+    transition-duration: 150ms;
+}
+.hijri-date-button:hover,
+.hijri-date-button:focus {
+    background-color: rgba(255,255,255,0.05);
+}
+.hijri-date-button:active {
+    background-color: rgba(255,255,255,0.08);
+}
+
+.hijri-date-label {
+    font-size: 14px;
+    font-weight: bold;
+    margin: 0;
+    padding: 0;
+}
+
+/* ──────────────────────────────────────────────────────────
+   8. Popup menu arrow adjustment (centred below button)
+─────────────────────────────────────────────────────────── */
+.popup-menu-below-panel .popup-menu {
+    margin: 0 !important;
+}
+.popup-menu-below-panel .popup-menu-content {
+    padding: 8px;
+    transform: translateX(-50%);
+    position: relative;
+    left: 50%;
+}
+.popup-menu-below-panel .popup-menu-arrow {
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
