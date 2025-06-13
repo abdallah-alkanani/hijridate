@@ -8,13 +8,12 @@
     background-color: transparent;
 }
 
-.row-title {                    /* bright white row label               */
+.row-title {                    
     color: #fff;
-    line-height: 1.1;           /* keeps label aligned with entry field */
+    line-height: 1.1;           
 }
-.row-title:insensitive { opacity: 0.35; }  /* dim when row disabled      */
+.row-title:insensitive { opacity: 0.35; }  
 
-/* used to give identical padding to custom popup-rows */
 .hijri-date-menu-item {
     padding: 0.4em;
 }
@@ -26,7 +25,7 @@
     background-color: rgba(255,255,255,0.08);
     border-radius: 10px;
     padding: 4px;
-    display: flex;              /* ensure children share baseline       */
+    display: flex;             
     align-items: center;
 }
 
@@ -39,14 +38,11 @@
 }
 .option-button:hover:not(:active) {
     background-color: rgba(255,255,255,0.08);
-    box-shadow:
-        inset 0 0 0 1px rgba(255,255,255,0.30),
-        0 0 4px 2px rgba(255,255,255,0.15);
     color: rgba(255,255,255,0.90);
     text-decoration: underline;
 }
 .option-button:active,
-.option-button.active {         /* selected state                       */
+.option-button.active {        
     background-color: rgba(255,255,255,0.18);
     color: #fff;
     font-weight: 600;
@@ -96,7 +92,7 @@
 .valid-preview  { color: rgba(87,227,137,0.9); }
 .error-preview  { color: rgba(246,97,81,0.9);  }
 
-/* validate borders on EntryRow */
+
 .adw-entry-row.error entry { border-color: #f66151; }
 .adw-entry-row.valid entry { border-color: rgba(53,132,228,.7); }
 

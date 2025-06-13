@@ -9,38 +9,35 @@ import Gdk     from 'gi://Gdk';
 
 import {
     ExtensionPreferences,
-    gettext as _
+    gettext as _        
 } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
-/* ── ENUMS & TEXT MAPS ────────────────────────────────── */
-const Position = { CENTER: 0, RIGHT: 1, FAR_RIGHT: 2, LEFT: 3, FAR_LEFT: 4 };
-const PositionText = {
-    [Position.CENTER]   : _('Center'),
-    [Position.RIGHT]    : _('Right'),
-    [Position.FAR_RIGHT]: _('Far Right'),
-    [Position.LEFT]     : _('Left'),
-    [Position.FAR_LEFT] : _('Far Left'),
-};
-
+/* ── ENUMS ────────────────────────────────────────────── */
+const Position = { FAR_LEFT: 0, LEFT: 1, CENTER: 2, RIGHT: 3, FAR_RIGHT: 4 };
 const Language = { ENGLISH: 0, ARABIC: 1 };
-const LanguageText = {
-    [Language.ENGLISH]: _('English'),
-    [Language.ARABIC] : _('Arabic'),
-};
-
 const NumberLanguage = { ENGLISH: 0, ARABIC: 1 };
-const NumberLanguageText = {
-    [NumberLanguage.ENGLISH]: _('English'),
-    [NumberLanguage.ARABIC] : _('Arabic'),
-};
-
 const YearSuffixStyle = { AH: 0, HEH: 1 };
-const YearSuffixStyleText = {
-    [YearSuffixStyle.AH] : _('AH'),
-    [YearSuffixStyle.HEH]: _('هـ'),
+
+const PositionTextRAW = {
+    [Position.FAR_LEFT] : 'Far Left',
+    [Position.LEFT]     : 'Left',
+    [Position.CENTER]   : 'Center',
+    [Position.RIGHT]    : 'Right',
+    [Position.FAR_RIGHT]: 'Far Right',
+};
+const LanguageTextRAW = {
+    [Language.ENGLISH] : 'English',
+    [Language.ARABIC]  : 'Arabic',
+};
+const NumberLanguageTextRAW = {
+    [NumberLanguage.ENGLISH]: 'English',
+    [NumberLanguage.ARABIC] : 'Arabic',
+};
+const YearSuffixStyleTextRAW = {
+    [YearSuffixStyle.AH] : 'AH',
+    [YearSuffixStyle.HEH]: 'هـ',
 };
 
-/* ── Shared Mini-Widgets ──────────────────────────────── */
 const OptionButton = GObject.registerClass(
 class OptionButton extends Gtk.ToggleButton {
     _init(label, active) {
@@ -53,7 +50,10 @@ class OptionButton extends Gtk.ToggleButton {
         if (active) this.add_css_class('active');
 
         this.connect('toggled', btn => {
-            btn.toggleClass('active', btn.active);
+            if (btn.active)
+                btn.add_css_class('active');
+            else
+                btn.remove_css_class('active');
         });
     }
 });
@@ -63,22 +63,22 @@ const SegmentedRow = class {
         this.row = new Adw.ActionRow({ activatable: false, selectable: false });
         this.row.add_css_class('no-row-hover');
 
-        /* left label */
-        this.row.add_prefix(new Gtk.Label({
+
+        const titleLbl = new Gtk.Label({
             label: title,
             xalign: 0,
             halign: Gtk.Align.START,
             valign: Gtk.Align.CENTER,
-        }));
+        });
 
-        /* right linked buttons */
         const box = new Gtk.Box({
             orientation: Gtk.Orientation.HORIZONTAL,
             spacing: 2,
             css_classes: ['linked'],
-            hexpand: true,
+            hexpand: false,
         });
-        this.row.add_suffix(box);
+        this.row.add_prefix(box);    
+        this.row.add_prefix(titleLbl); 
 
         this._buttons = Object.entries(textMap).map(([key, label]) => {
             const idx = Number(key);
@@ -94,10 +94,8 @@ const SegmentedRow = class {
     }
 };
 
-/* ── Preferences Window ───────────────────────────────── */
 export default class HijriDatePreferences extends ExtensionPreferences {
 
-    /* simple helper: load stylesheet.css if present */
     _loadStylesheet() {
         const cssPath = `${this.dir.get_path()}/stylesheet.css`;
         const provider = new Gtk.CssProvider();
@@ -108,8 +106,8 @@ export default class HijriDatePreferences extends ExtensionPreferences {
                 provider,
                 Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
             );
-        } catch (e) {
-            console.log(`[HijriDatePrefs] could not load ${cssPath}: ${e}`);
+        } catch (_) {
+            
         }
     }
 
@@ -117,79 +115,22 @@ export default class HijriDatePreferences extends ExtensionPreferences {
         const settings = this.getSettings('org.gnome.shell.extensions.hijridate');
         this._loadStylesheet();
 
+
+        const tr = raw =>
+            Object.fromEntries(Object.entries(raw).map(([k, v]) => [k, _(v)]));
+
+        const PositionText        = tr(PositionTextRAW);
+        const LanguageText        = tr(LanguageTextRAW);
+        const NumberLanguageText  = tr(NumberLanguageTextRAW);
+        const YearSuffixStyleText = tr(YearSuffixStyleTextRAW);
+
+        
         const page = new Adw.PreferencesPage({ title: _('Hijri Date Settings') });
         window.add(page);
 
-        /* ── General Settings group ─────────────────────── */
+
         const general = new Adw.PreferencesGroup({ title: _('General Settings') });
         page.add(general);
-
-        general.add(new SegmentedRow(
-            _('Position'), PositionText,
-            settings.get_int('position'),
-            idx => settings.set_int('position', idx)
-        ).row);
-
-        /* Date-format free-text entry + helper text */
-        const fmtBox = new Gtk.Box({
-            orientation: Gtk.Orientation.VERTICAL,
-            spacing: 6,
-            margin_top: 10,
-            margin_bottom: 10,
-        });
-
-        const fmtRow = new Adw.EntryRow({
-            title: _('Date Format'),
-            text : settings.get_string('date-format'),
-            placeholder_text: _('{day} {month} {year} {suffix}'),
-        });
-
-        /* quick-insert token buttons */
-        const addTokenBtn = (token) => {
-            const btn = new Gtk.Button({ label: token, css_classes: ['token-button'] });
-            btn.connect('clicked', () => {
-                const p = fmtRow.get_position();
-                fmtRow.text = fmtRow.text.slice(0, p) + token + fmtRow.text.slice(p);
-                fmtRow.set_position(p + token.length);
-            });
-            fmtRow.add_suffix(btn);
-        };
-        ['{day}','{month}','{year}','{suffix}'].forEach(addTokenBtn);
-
-        /* reset button */
-        const resetBtn = new Gtk.Button({ icon_name: 'edit-undo', tooltip_text: _('Reset') });
-        resetBtn.connect('clicked', () => (fmtRow.text = '{day} {month} {year} {suffix}'));
-        fmtRow.add_suffix(resetBtn);
-
-        /* live validation & preview */
-        const preview = new Gtk.Label({
-            halign: Gtk.Align.START,
-            wrap: true,
-            css_classes: ['format-preview'],
-        });
-        const validate = () => {
-            const txt = fmtRow.text.trim();
-            const ok  = /{day}|{month}|{year}|{suffix}/.test(txt);
-            settings.set_string('date-format', ok ? txt : settings.get_string('date-format'));
-            preview.label = _('Preview: ') + txt;
-            fmtRow.toggleClass('error', !ok);
-            preview.toggleClass('error-preview', !ok);
-            preview.toggleClass('valid-preview', ok);
-        };
-        fmtRow.connect('changed', validate);
-        validate(); // initial
-
-        fmtBox.append(fmtRow);
-        fmtBox.append(new Gtk.Label({
-            label: _('Tokens: {day} {month} {year} {suffix}\n'
-                   + '{suffix} prints “AH/هـ” only when “Show Year” is on.'),
-            halign: Gtk.Align.START,
-            wrap: true,
-            css_classes: ['format-help-text'],
-        }));
-        fmtBox.append(preview);
-        general.add(fmtBox);
-
         general.add(new SegmentedRow(
             _('Language'), LanguageText,
             settings.get_int('language'),
@@ -202,9 +143,82 @@ export default class HijriDatePreferences extends ExtensionPreferences {
             idx => settings.set_int('number-language', idx)
         ).row);
 
-        /* ── Year Display group ─────────────────────────── */
+
+        /* ─Date format row─ */
+
+        const fmtRow = new Adw.ActionRow({ activatable: false, selectable: false });
+        fmtRow.add_css_class('no-row-hover');
+
+
+        const fmtLabel = new Gtk.Label({
+            label: _('Date Format'),
+            xalign: 0,
+            halign: Gtk.Align.START,
+            valign: Gtk.Align.CENTER,
+        });
+
+        const vBox = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 4 });
+
+        const hBox = new Gtk.Box({ spacing: 6 });
+
+        const fmtEntry = new Gtk.Entry({
+            text: settings.get_string('date-format'),
+            hexpand: true,
+        });
+        fmtEntry.placeholder_text = _('{day} {month} {year} {suffix}');
+        hBox.append(fmtEntry);
+
+        const resetBtn = new Gtk.Button({
+            css_classes: ['reset-btn', 'flat'],
+            tooltip_text: _('Reset'),
+        });
+
+        resetBtn.set_child(Gtk.Image.new_from_icon_name('view-refresh-symbolic'));
+        hBox.append(resetBtn);
+
+        vBox.append(hBox);
+
+        const note = new Gtk.Label({
+            label: _('Note: When language is Arabic, order of tokens is reversed'),
+            halign: Gtk.Align.START,
+            wrap: true,
+            css_classes: ['format-help-text'],
+        });
+        vBox.append(note);
+
+        fmtRow.add_prefix(vBox);   
+        fmtRow.add_prefix(fmtLabel);
+
+        general.add(fmtRow);
+        const commit = txt => settings.set_string('date-format', txt.trim());
+        const validate = () => {
+            const txt = fmtEntry.text.trim();
+            const ok  = /{day}|{month}|{year}|{suffix}/.test(txt);
+
+            if (ok) commit(txt);
+
+            fmtEntry.remove_css_class(ok ? 'error' : 'valid');
+            fmtEntry.add_css_class(ok ? 'valid' : 'error');
+        };
+        fmtEntry.connect('changed', validate);
+        validate();
+
+        resetBtn.connect('clicked', () =>
+            fmtEntry.text = '{day} {month} {year} {suffix}'
+        );     
+
+
+
+        
+        general.add(new SegmentedRow(
+            _('Position'), PositionText,
+            settings.get_int('position'),
+            idx => settings.set_int('position', idx)
+        ).row);
+
+        /* ── Year display ─────────────────────────────── */
         const yearGrp = new Adw.PreferencesGroup({ title: _('Year Display') });
-        page.add(yearGrp);
+        page.add(yearGrp);  
 
         const showYearRow = new Adw.ActionRow({ title: _('Show Year'), activatable: true });
         const yearSwitch  = new Gtk.Switch({
@@ -223,7 +237,6 @@ export default class HijriDatePreferences extends ExtensionPreferences {
         );
         yearGrp.add(yearSuffixRow.row);
 
-        /* enable / disable suffix buttons based on switch */
         const toggleSuffixSensitivity = () => {
             const enabled = settings.get_boolean('show-year');
             yearSuffixRow._buttons.forEach(btn => (btn.sensitive = enabled));
@@ -232,5 +245,3 @@ export default class HijriDatePreferences extends ExtensionPreferences {
         toggleSuffixSensitivity();
     }
 }
-
-
