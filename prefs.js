@@ -232,3 +232,5 @@ export default class HijriDatePreferences extends ExtensionPreferences {
         toggleSuffixSensitivity();
     }
 }
+
+

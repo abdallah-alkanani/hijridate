@@ -1,8 +1,8 @@
 {
     "name": "Hijri Date",
-    "description": "Add Hijri date to GNOME Shell panel",
-    "uuid": "hijridate@iwillcompletethisprojectinshallah",
-    "url": "https://github.com/yourusername/hijridate",
+    "description": "Add Hijri date to top panel",
+    "uuid": "HijriDate@date",
+    "url": "https://github.com/abdallah-alkanani/HijriDate",
     "shell-version": [
         "45",
         "46",
