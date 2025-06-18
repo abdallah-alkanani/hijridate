@@ -601,16 +601,17 @@ export default class HijriDateDisplayExtension extends Extension {
     }
 
     disable() {
-
-            
-        if (this._spacer && this._spacer.get_parent()) {
-            this._spacer.get_parent().remove_child(this._spacer);
+        if (this._spacer) {
+            if (this._spacer.get_parent())
+                this._spacer.get_parent().remove_child(this._spacer);
+            this._spacer.destroy?.();
             this._spacer = null;
         }
         if (this._indicator) {
             this._indicator.destroy();
             this._indicator = null;
         }
-        console.log('Hijri Date extension disabled.');
+        this._settings = null;
+        console.debug('Hijri Date extension disabled.');
     }
 }
