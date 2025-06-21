@@ -604,7 +604,7 @@ export default class HijriDateDisplayExtension extends Extension {
         if (this._spacer) {
             if (this._spacer.get_parent())
                 this._spacer.get_parent().remove_child(this._spacer);
-            this._spacer.destroy?.();
+            this._spacer?.destroy();
             this._spacer = null;
         }
         if (this._indicator) {
