@@ -277,7 +277,7 @@ const SegmentedRow = class {
 export default class HijriDatePreferences extends ExtensionPreferences {
 
     _loadStylesheet() {
-        const cssPath = `${this.dir.get_path()}/stylesheet.css`;
+        const cssPath = `${this.dir.get_path()}/prefs.css`;
         const provider = new Gtk.CssProvider();
         try {
             provider.load_from_path(cssPath);
@@ -292,7 +292,7 @@ export default class HijriDatePreferences extends ExtensionPreferences {
     }
 
     fillPreferencesWindow(window) {
-        const settings = this.getSettings('org.gnome.shell.extensions.hijridate');
+        const settings = this.getSettings();
         this._loadStylesheet();
 
 
@@ -391,8 +391,8 @@ export default class HijriDatePreferences extends ExtensionPreferences {
 
             if (ok) commit(txt);
 
-            fmtEntry.remove_css_class(ok ? 'error' : 'valid');
-            fmtEntry.add_css_class(ok ? 'valid' : 'error');
+            fmtRow.remove_css_class(ok ? 'error' : 'valid');
+            fmtRow.add_css_class(ok ? 'valid' : 'error');
         };
         fmtEntry.connect('changed', validate);
         validate();
@@ -513,21 +513,6 @@ export default class HijriDatePreferences extends ExtensionPreferences {
             max_length: 7,
             width_chars: 8,
         });
-
-        // Add validation CSS for error state only
-        const cssProvider = new Gtk.CssProvider();
-        cssProvider.load_from_data(`
-            .error-state {
-                background-color: rgba(255, 0, 0, 0.15);
-                border-color: #ff3030;
-                color: #ffffff;
-            }
-        `, -1);
-        Gtk.StyleContext.add_provider_for_display(
-            Gdk.Display.get_default(),
-            cssProvider,
-            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-        );
 
         this._hexEntry.connect('changed', () => {
             let hex = this._hexEntry.get_text().trim();

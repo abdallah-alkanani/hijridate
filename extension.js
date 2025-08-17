@@ -47,14 +47,14 @@ class SegmentedButtonRow extends PopupMenu.PopupBaseMenuItem {
             btn.track_hover = true; // keeps pseudo :hover updates explicit
 
             if (idx === activeIndex)
-                btn.add_style_pseudo_class('active');
+                btn.set_checked(true);
 
             box.add_child(btn);
             this._buttons.push(btn);
 
             btn.connect('clicked', () => {
-                this._buttons.forEach(b => b.remove_style_pseudo_class('active'));
-                btn.add_style_pseudo_class('active');
+                this._buttons.forEach(b => b.set_checked(false));
+                btn.set_checked(true);
                 onChange(idx);
             });
         });
@@ -206,19 +206,9 @@ class HijriDateButton extends PanelMenu.Button {
         // Apply initial color
         this._updateColor();
 
-        if (this._extension._spacing > 0) {
-            this._spacer = new St.Widget({
-                style: `width: ${this._extension._spacing}px;`,
-                reactive: false,
-                track_hover: false,
-                can_focus: false
-            });
-            this._extension._addSpacerToPanel(this._spacer);
-        }
-
         this.add_style_class_name('hijri-date-button');
         this.menu.actor.add_style_class_name('popup-menu-below-panel');
-        this.menu._arrowAlignment = 0.5;
+        this.menu.setSourceAlignment(0.5);
 
         this._addLanguageOptions();
         this._addNumberLanguageOptions();
@@ -229,11 +219,18 @@ class HijriDateButton extends PanelMenu.Button {
 
         this._settingsChangedId = this._extension._settings.connect('changed', (settings, key) => {
             switch (key) {
-                case 'position':
-                case 'spacing':
-                    this._extension.disable();
-                    this._extension.enable();
+                case 'position': {
+                    const pos = settings.get_int('position');
+                    this._extension.setPosition(pos);
                     break;
+                }
+                case 'spacing': {
+                    this._extension._spacing = settings.get_int('spacing');
+                    if (this._extension._spacer) {
+                        this._extension._spacer.set_style(`width: ${this._extension._spacing}px;`);
+                    }
+                    break;
+                }
                 case 'language':
                     this._extension._language = settings.get_int('language');
                     this._updateDate();
@@ -314,8 +311,6 @@ class HijriDateButton extends PanelMenu.Button {
             idx => {
                 this._extension._settings.set_int('position', idx);
                 this._extension.setPosition(idx);
-                this._extension.disable();
-                this._extension.enable();
             }
         );
         this.menu.addMenuItem(posRow);
@@ -375,11 +370,7 @@ class HijriDateButton extends PanelMenu.Button {
         
         settingsItem.connect('activate', () => {
             try {
-                // Use subprocess to open preferences
-                const subprocess = Gio.Subprocess.new(
-                    ['gnome-extensions', 'prefs', this._extension.metadata.uuid],
-                    Gio.SubprocessFlags.NONE
-                );
+                this._extension.openPreferences();
             } catch (e) {
                 console.error('Failed to open preferences:', e);
             }
@@ -419,12 +410,12 @@ class HijriDateButton extends PanelMenu.Button {
     }
 
     destroy() {
-        if (this._timer)
-            GLib.source_remove(this._timer);
+        if (this._timer) {
+            GLib.Source.remove(this._timer);
+            this._timer = 0;
+        }
         if (this._settingsChangedId)
             this._extension._settings.disconnect(this._settingsChangedId);
-        if (this._spacer)
-            this._spacer.destroy();
         super.destroy();
     }
 });
@@ -447,7 +438,7 @@ export default class HijriDateDisplayExtension extends Extension {
     }
 
     enable() {
-        this._settings = this.getSettings('org.gnome.shell.extensions.hijridate');
+        this._settings = this.getSettings();
         this._position       = this._settings.get_int('position');
         this._spacing        = this._settings.get_int('spacing');
         this._language       = this._settings.get_int('language');
@@ -510,14 +501,34 @@ export default class HijriDateDisplayExtension extends Extension {
         }
         
         Main.panel.addToStatusArea('hijri-date', this._indicator, boxIndex, boxName);
-        this._indicator.menu._arrowAlignment = 0.5;
+        this._indicator.menu.setSourceAlignment(0.5);
+        
+        // Add spacer if needed
+        if (this._spacing > 0) {
+            if (!this._spacer) {
+                this._spacer = new St.Widget({
+                    style: `width: ${this._spacing}px;`,
+                    reactive: false,
+                    track_hover: false,
+                    can_focus: false
+                });
+            }
+            this._addSpacerToPanel(this._spacer);
+        }
     }
 
     setPosition(position) {
         this._position = position;
+        // Remove spacer from old position
+        if (this._spacer && this._spacer.get_parent()) {
+            this._spacer.get_parent().remove_child(this._spacer);
+        }
+        // Re-add panel with new position
         this._addToPanel();
-        this._settings.set_int('position', this._position);
-        this._settings.set_int('spacing', this._spacing);
+        // Re-add spacer if needed
+        if (this._spacing > 0 && this._spacer) {
+            this._addSpacerToPanel(this._spacer);
+        }
     }
 
     _addSpacerToPanel(spacer) {
@@ -593,6 +604,5 @@ export default class HijriDateDisplayExtension extends Extension {
             this._indicator = null;
         }
         this._settings = null;
-        console.debug('Hijri Date extension disabled.');
     }
 }
