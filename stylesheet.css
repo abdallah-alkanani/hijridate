@@ -101,6 +101,81 @@
 ─────────────────────────────────────────────────────────── */
 .year-toggle-switch { margin-right: 8px; }
 
+/* Compact preferences rows */
+.adw-preferences-group {
+    margin-bottom: 8px !important;
+}
+
+.adw-action-row {
+    min-height: 40px !important;
+    padding: 4px 8px !important;
+}
+
+.adw-expander-row {
+    min-height: 40px !important;
+    padding: 4px 8px !important;
+}
+
+.adw-expander-row:expanded {
+    padding-bottom: 2px !important;
+}
+
+/* Make segmented controls more compact */
+.linked {
+    padding: 2px !important;
+    border-radius: 6px !important;
+}
+
+.option-button {
+    padding: 2px 12px !important;
+    font-size: 0.9em !important;
+    border-radius: 4px !important;
+}
+
+/* Make preferences window more compact */
+.adw-preferences-window {
+    padding: 8px !important;
+}
+
+.adw-preferences-page {
+    margin: 4px !important;
+    padding: 4px !important;
+}
+
+.adw-preferences-group > box {
+    padding: 8px !important;
+    margin: 4px !important;
+}
+
+.adw-preferences-group headerbar {
+    min-height: 32px !important;
+    padding: 2px 8px !important;
+}
+
+/* Make entry fields more compact */
+entry {
+    min-height: 28px !important;
+    padding: 4px 8px !important;
+}
+
+/* Compact switches */
+switch {
+    min-height: 20px !important;
+    min-width: 36px !important;
+}
+
+/* Compact labels and titles */
+.adw-preferences-group > box > box > label {
+    font-size: 0.95em !important;
+    padding: 2px 0 !important;
+}
+
+/* Make color picker container more compact */
+.color-container {
+    padding: 8px !important;
+    margin: 8px !important;
+}
+
 /* ──────────────────────────────────────────────────────────
    7. Top-panel indicator
 ─────────────────────────────────────────────────────────── */
@@ -145,4 +220,66 @@
     border: 0;
 }
 
+/* Small (panel) menu only */
+.popup-menu .linked {
+    background-color: transparent !important; /* let button hover show */
+    padding: 3px !important;
+    border-radius: 10px !important;
+}
+
+/* Round like big settings and slightly larger tappable area */
+.popup-menu .option-button {
+    border-radius: 10px !important;
+    padding: 4px 14px !important;
+}
+
+/* Make hover visibly brighter than the container */
+.popup-menu .option-button:hover:not(:active) {
+    background-color: rgba(255,255,255,0.16) !important;
+    color: rgba(255,255,255,0.95) !important;
+    text-decoration: underline;
+}
+
+.popup-menu .option-button:active {
+    background-color: rgba(255,255,255,0.24) !important;
+    color: #fff !important;
+}
+
+
+/* General Settings page only */
+.compact-page .adw-preferences-group {
+    margin-bottom: 6px !important;
+}
+
+.compact-page .adw-action-row,
+.compact-page .adw-expander-row {
+    min-height: 32px !important;      /* was 40 */
+    padding: 2px 8px !important;       /* was 4 8 */
+}
+
+.compact-page .adw-preferences-group > box {
+    padding: 6px !important;           /* was 8 */
+    margin: 2px !important;            /* was 4 */
+}
+
+.compact-page entry {
+    min-height: 24px !important;       /* was 28 */
+    padding: 2px 6px !important;
+}
+
+.compact-page switch {
+    min-height: 16px !important;       /* was 20 */
+    min-width: 32px !important;        /* was 36 */
+}
+
+/* Smaller segmented controls and buttons on General page only */
+.compact-page .linked {
+    padding: 2px !important;
+    border-radius: 6px !important;
+}
+
+.compact-page .option-button {
+    padding: 2px 10px !important;      /* was 2 12 */
+    font-size: 0.9em !important;
+}
 

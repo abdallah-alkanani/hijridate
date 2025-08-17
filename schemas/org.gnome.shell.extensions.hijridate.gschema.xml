@@ -48,9 +48,15 @@
       <description>
         A template that can contain any combination of the tokens
         {day}, {month}, {year} and {suffix}.  They will be replaced
-        at run-time.  {suffix} appears only when “Show Year” is enabled.
+        at run-time.  {suffix} appears only when "Show Year" is enabled.
       </description>
       <default>'{day} {month} {year} {suffix}'</default>
+    </key>
+
+    <key name="text-color" type="s">
+      <summary>Text color</summary>
+      <description>Color of the Hijri date text in the panel</description>
+      <default>'#ffffff'</default>
     </key>
 
   </schema>

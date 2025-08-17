@@ -4,6 +4,7 @@ import St from 'gi://St';
 import GObject from 'gi://GObject';
 import Clutter from 'gi://Clutter';
 import GLib from 'gi://GLib';
+import Gio from 'gi://Gio';
 import { Extension, gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
@@ -43,6 +44,7 @@ class SegmentedButtonRow extends PopupMenu.PopupBaseMenuItem {
                 reactive: true,
                 can_focus: true
             });
+            btn.track_hover = true; // keeps pseudo :hover updates explicit
 
             if (idx === activeIndex)
                 btn.add_style_pseudo_class('active');
@@ -200,6 +202,9 @@ class HijriDateButton extends PanelMenu.Button {
 
         this.box.add_child(this.label);
         this.add_child(this.box);
+        
+        // Apply initial color
+        this._updateColor();
 
         if (this._extension._spacing > 0) {
             this._spacer = new St.Widget({
@@ -217,10 +222,10 @@ class HijriDateButton extends PanelMenu.Button {
 
         this._addLanguageOptions();
         this._addNumberLanguageOptions();
-        this._addDateFormatOption();
         this._addPositionOptions();
         this._addShowYearOption();
         this._addYearSuffixStyleOptions();
+        this._addSettingsButton();
 
         this._settingsChangedId = this._extension._settings.connect('changed', (settings, key) => {
             switch (key) {
@@ -249,6 +254,10 @@ class HijriDateButton extends PanelMenu.Button {
                 case 'date-format':
                     this._extension._dateFormat = settings.get_string('date-format');
                     this._updateDate();
+                    break;
+                case 'text-color':
+                    this._extension._textColor = settings.get_string('text-color');
+                    this._updateColor();
                     break;
             }
         });
@@ -295,95 +304,6 @@ class HijriDateButton extends PanelMenu.Button {
         this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
     }
 
-    _addDateFormatOption() {
-        const row = new PopupMenu.PopupBaseMenuItem({ activate: false });
-        row.add_style_class_name('no-row-hover');
-        row.add_style_class_name('hijri-date-menu-item');
-
-        const vboxRow = new St.BoxLayout({
-            vertical: true,
-            x_expand: true
-        });
-        row.add_child(vboxRow);
-
-
-        const hboxRow = new St.BoxLayout({ x_expand: true });
-        vboxRow.add_child(hboxRow);
-
-        const lbl = new St.Label({
-            text: _('Date Format'),
-            x_align: Clutter.ActorAlign.START,
-            y_align: Clutter.ActorAlign.CENTER
-        });
-        lbl.add_style_class_name('row-title');
-        lbl.set_width(80);
-        hboxRow.add_child(lbl);
-
-        const innerBox = new St.BoxLayout({
-            style_class: 'linked',
-            x_expand: true
-        });
-        hboxRow.add_child(innerBox);
-
-        const entry = new St.Entry({
-            text: this._extension._dateFormat,
-            style_class: 'option-entry',
-            can_focus: true,
-            x_expand: true
-        });
-        entry.set_y_align(Clutter.ActorAlign.CENTER);
-        innerBox.add_child(entry);
-
-        const reset = new St.Button({
-            style_class: 'system-menu-action',
-            child: new St.Icon({ icon_name: 'view-refresh-symbolic', icon_size: 16 }),
-            can_focus: true
-        });
-        innerBox.add_child(reset);
-
-        const save = txt => {
-            this._extension._settings.set_string('date-format', txt);
-            this._extension._dateFormat = txt;
-            this._updateDate();
-        };
-
-        const validate = () => {
-            const txt = entry.get_text().trim();
-            const ok  = /{day}|{month}|{year}|{suffix}/.test(txt);
-
-            if (ok)         
-                save(txt);
-
-            entry.remove_style_class_name(ok ? 'error' : 'valid');
-            entry.add_style_class_name(ok ? 'valid' : 'error');
-        };
-
-
-        entry.clutter_text.connect('text-changed', validate);
-        validate();          
-
-        reset.connect('clicked', () => {
-            entry.set_text('{day} {month} {year} {suffix}');
-        });
-        const help = new St.Label({
-            text: _('Note: When language is Arabic, order of tokens is reversed'),
-            style_class: 'format-help-text-popup',
-            x_align: Clutter.ActorAlign.START
-        });
-        help.set_margin_bottom(4);
-
-        const helpRow = new St.BoxLayout({ x_expand: true });
-        helpRow.add_child(new St.Label({
-            text: '',              
-            width: 80          
-        }));
-        helpRow.add_child(help);
-        vboxRow.add_child(helpRow);
-
-
-        this.menu.addMenuItem(row);
-        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-    }
 
     _addPositionOptions() {
         const posItems = Object.values(PositionText);
@@ -447,6 +367,28 @@ class HijriDateButton extends PanelMenu.Button {
         this._updateYearSuffixStyleSensitivity();
     }
 
+    _addSettingsButton() {
+        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+        
+        const settingsItem = new PopupMenu.PopupMenuItem(_('More Settings...'));
+        settingsItem.add_style_class_name('settings-button-item');
+        
+        settingsItem.connect('activate', () => {
+            try {
+                // Use subprocess to open preferences
+                const subprocess = Gio.Subprocess.new(
+                    ['gnome-extensions', 'prefs', this._extension.metadata.uuid],
+                    Gio.SubprocessFlags.NONE
+                );
+            } catch (e) {
+                console.error('Failed to open preferences:', e);
+            }
+            this.menu.close();
+        });
+        
+        this.menu.addMenuItem(settingsItem);
+    }
+
     _updateYearSuffixStyleSensitivity() {
         if (!this._yearSuffixStyleRow) return;
     
@@ -470,6 +412,12 @@ class HijriDateButton extends PanelMenu.Button {
         );
     }
 
+    _updateColor() {
+        if (this.label) {
+            this.label.set_style(`color: ${this._extension._textColor};`);
+        }
+    }
+
     destroy() {
         if (this._timer)
             GLib.source_remove(this._timer);
@@ -490,6 +438,7 @@ export default class HijriDateDisplayExtension extends Extension {
     _showYear       = false;
     _yearSuffixStyle= YearSuffixStyle.AH;
     _dateFormat     = '{day} {month} {year} {suffix}';
+    _textColor      = '#ffffff';
     _spacer         = null;
     _settings       = null;
 
@@ -506,7 +455,17 @@ export default class HijriDateDisplayExtension extends Extension {
         this._showYear       = this._settings.get_boolean('show-year');
         this._yearSuffixStyle= this._settings.get_int('year-suffix-style');
         this._dateFormat     = this._settings.get_string('date-format');
-        this._addToPanel();
+        this._textColor      = this._settings.get_string('text-color');
+        
+        // Add a small delay for CENTER position to ensure dateMenu is loaded
+        if (this._position === Position.CENTER) {
+            GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
+                this._addToPanel();
+                return GLib.SOURCE_REMOVE;
+            });
+        } else {
+            this._addToPanel();
+        }
     }
 
     _addToPanel() {
@@ -526,11 +485,14 @@ export default class HijriDateDisplayExtension extends Extension {
                 break;
             case Position.LEFT:
                 boxName = 'left';
-                boxIndex = 1;
+                boxIndex = -1;  // Use -1 to place at the end of left box
                 break;
             case Position.CENTER:
                 boxName = 'center';
-                boxIndex = 0;
+                // Always position consistently relative to dateMenu
+                const centerBox = Main.panel._centerBox;
+                const dateMenuIndex = this._findDateMenuIndex(centerBox);
+                boxIndex = dateMenuIndex >= 0 ? dateMenuIndex : 0;
                 break;
             case Position.RIGHT:
                 boxName = 'right';
@@ -542,6 +504,11 @@ export default class HijriDateDisplayExtension extends Extension {
                 break;
         }
 
+        // Ensure consistent positioning by always using a unique identifier
+        if (Main.panel.statusArea['hijri-date']) {
+            Main.panel.statusArea['hijri-date'].destroy();
+        }
+        
         Main.panel.addToStatusArea('hijri-date', this._indicator, boxIndex, boxName);
         this._indicator.menu._arrowAlignment = 0.5;
     }
@@ -583,6 +550,20 @@ export default class HijriDateDisplayExtension extends Extension {
                 box.insert_child_at_index(this._spacer, idx + 1);
             }
         }
+    }
+
+    _findDateMenuIndex(centerBox) {
+        // Find the GNOME dateMenu in the center box
+        if (!centerBox) return -1;
+        
+        for (let i = 0; i < centerBox.get_n_children(); i++) {
+            const child = centerBox.get_child_at_index(i);
+            // Check if this is the dateMenu (it usually has the 'dateMenu' property)
+            if (child === Main.panel.statusArea.dateMenu?.container) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     _getBoxPosition(position) {
