@@ -1,0 +1,100 @@
+/* GNOME Shell/St styles for the extension */
+
+/* ──────────────────────────────────────────────────────────
+   Panel button and popup menu styles
+─────────────────────────────────────────────────────────── */
+
+/* Helper classes */
+.no-row-hover,
+.no-row-hover:hover,
+.no-row-hover:selected,
+.no-row-hover:focus {
+    background-color: transparent;
+}
+
+.row-title {                    
+    color: #fff;
+    line-height: 1.1;           
+}
+.row-title:insensitive { 
+    opacity: 0.35; 
+}  
+
+/* Panel button */
+.hijri-date-button {
+    padding: 0 6px;
+    transition-duration: 150ms;
+}
+
+.hijri-date-button:hover,
+.hijri-date-button:focus {
+    background-color: rgba(255,255,255,0.05);
+}
+
+.hijri-date-button:active {
+    background-color: rgba(255,255,255,0.08);
+}
+
+.hijri-date-label {
+    font-size: 14px;
+    font-weight: bold;
+    margin: 0;
+    padding: 0;
+}
+
+/* Popup menu segmented controls */
+.popup-menu .linked {
+    background-color: transparent !important;
+    padding: 3px !important;
+    border-radius: 10px !important;
+}
+
+.popup-menu .option-button {
+    background: transparent;
+    color: rgba(255,255,255,0.75);
+    padding: 4px 14px !important;
+    border-radius: 10px !important;
+    transition: background-color 120ms, box-shadow 120ms, color 120ms;
+}
+
+.popup-menu .option-button:hover {
+    background-color: rgba(255,255,255,0.16) !important;
+    color: rgba(255,255,255,0.95) !important;
+    text-decoration: none;
+}
+
+.popup-menu .option-button:checked {
+    background-color: rgba(255,255,255,0.24) !important;
+    color: #fff !important;
+    font-weight: 600;
+}
+.popup-menu .option-button:active {
+    background-color: rgba(255,255,255,0.20) !important;
+}
+
+/* Settings button in popup */
+.settings-button-item {
+    font-weight: 500;
+}
+
+/* Popup menu positioning */
+.popup-menu-below-panel .popup-menu {
+    margin: 0 !important;
+}
+
+.popup-menu-below-panel .popup-menu-content {
+    padding: 8px;
+    transform: translateX(-50%);
+    position: relative;
+    left: 50%;
+}
+
+.popup-menu-below-panel .popup-menu-arrow {
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    margin: 0;
+    padding: 0;
+    border: 0;
+}

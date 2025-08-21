@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.hijridate"
+          path="/org/gnome/shell/extensions/hijridate/">
+
+    <!-- 0 = Center · 1 = Right · 2 = Far-Right · 3 = Left · 4 = Far-Left -->
+    <key name="position" type="i">
+      <summary>Indicator position</summary>
+      <description>Location of the Hijri-date button in the top bar.</description>
+      <default>3</default>
+    </key>
+
+    <key name="spacing" type="i">
+      <summary>Extra spacer width</summary>
+      <description>Number of blank pixels inserted after the indicator.</description>
+      <default>0</default>
+    </key>
+
+    <!-- 0 = English · 1 = Arabic -->
+    <key name="language" type="i">
+      <summary>Date language</summary>
+      <description>Language used for month/day names.</description>
+      <default>0</default>
+    </key>
+
+    <!-- 0 = Latin digits · 1 = Arabic-Indic digits -->
+    <key name="number-language" type="i">
+      <summary>Digit language</summary>
+      <description>Numbering system for day and year values.</description>
+      <default>0</default>
+    </key>
+
+    <key name="show-year" type="b">
+      <summary>Show Hijri year</summary>
+      <description>Toggle to include or hide the year component.</description>
+      <default>false</default>
+    </key>
+
+    <!-- 0 = “AH” · 1 = Arabic “هـ” -->
+    <key name="year-suffix-style" type="i">
+      <summary>Year suffix style</summary>
+      <description>Literal appended after the year whenever it is shown.</description>
+      <default>0</default>
+    </key>
+
+    <key name="date-format" type="s">
+      <summary>Custom date format</summary>
+      <description>
+        A template that can contain any combination of the tokens
+        {day}, {month}, {year} and {suffix}.  They will be replaced
+        at run-time.  {suffix} appears only when "Show Year" is enabled.
+      </description>
+      <default>'{day} {month} {year} {suffix}'</default>
+    </key>
+
+    <key name="text-color" type="s">
+      <summary>Text color</summary>
+      <description>Color of the Hijri date text in the panel</description>
+      <default>'#ffffff'</default>
+    </key>
+
+  </schema>
+</schemalist>
