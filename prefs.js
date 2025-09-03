@@ -290,12 +290,38 @@ export default class HijriDatePreferences extends ExtensionPreferences {
             
         }
     }
+     _applyColorSchemeClass(window) {
+        const sm = Adw.StyleManager.get_default();
+
+        const apply = () => {
+            window.remove_css_class('is-dark');
+            window.remove_css_class('is-light');
+            window.add_css_class(sm.dark ? 'is-dark' : 'is-light');
+        };
+
+        apply();
+
+        if (this._styleSignal)
+            sm.disconnect(this._styleSignal);
+        this._styleSignal = sm.connect('notify::dark', apply);
+
+        // optional: disconnect on window close to avoid leaks
+        window.connect('close-request', () => {
+            if (this._styleSignal) {
+                sm.disconnect(this._styleSignal);
+                this._styleSignal = 0;
+            }
+            return false;
+        });
+    }
 
     fillPreferencesWindow(window) {
         const settings = this.getSettings();
         this._loadStylesheet();
 
-
+        window.add_css_class('hijri-prefs');
+        this._applyColorSchemeClass(window);
+        
         const tr = raw =>
             Object.fromEntries(Object.entries(raw).map(([k, v]) => [k, _(v)]));
 
@@ -561,3 +587,4 @@ export default class HijriDatePreferences extends ExtensionPreferences {
         colorGroup.add(colorExpander);
     }
 }
+
