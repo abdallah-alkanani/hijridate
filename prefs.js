@@ -243,7 +243,6 @@ const SegmentedRow = class {
         this.row = new Adw.ActionRow({ activatable: false, selectable: false });
         this.row.add_css_class('no-row-hover');
 
-
         const titleLbl = new Gtk.Label({
             label: title,
             xalign: 0,
@@ -251,14 +250,20 @@ const SegmentedRow = class {
             valign: Gtk.Align.CENTER,
         });
 
+        // segmented control container
         const box = new Gtk.Box({
             orientation: Gtk.Orientation.HORIZONTAL,
             spacing: 2,
             css_classes: ['linked'],
             hexpand: false,
+            halign: Gtk.Align.END,   // keep it right-aligned in the suffix
         });
-        this.row.add_prefix(box);    
-        this.row.add_prefix(titleLbl); 
+
+        // LEFT: title label stays as prefix
+        this.row.add_prefix(titleLbl);
+
+        // RIGHT: segmented buttons go to suffix (this is the key change)
+        this.row.add_suffix(box);
 
         this._buttons = Object.entries(textMap).map(([key, label]) => {
             const idx = Number(key);
@@ -273,6 +278,7 @@ const SegmentedRow = class {
         });
     }
 };
+
 
 export default class HijriDatePreferences extends ExtensionPreferences {
 
