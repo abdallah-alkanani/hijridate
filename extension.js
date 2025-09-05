@@ -13,7 +13,15 @@ const PanelMenu  = imports.ui.panelMenu;
 const PopupMenu  = imports.ui.popupMenu;
 
 const ExtensionUtils = imports.misc.extensionUtils;
-const _ = ExtensionUtils.gettext;
+const Gettext = imports.gettext;
+const Me = ExtensionUtils.getCurrentExtension();
+const _ = Gettext.domain(Me.metadata['gettext-domain']).gettext;
+
+function init(meta) {
+    try { ExtensionUtils.initTranslations(Me.metadata['gettext-domain']); } catch (e) {}
+    return new Extension40to44();
+}
+
 
 /* ----- SegmentedButtonRow ------------------------------------------------- */
 
@@ -234,6 +242,10 @@ class HijriDateButton extends PanelMenu.Button {
                     this._extension._showYear = settings.get_boolean('show-year');
                     this._updateDate();
                     this._updateYearSuffixStyleSensitivity();
+                    if (this._showYearMenuItem)
+			(this._showYearMenuItem.setToggleState
+			   ? this._showYearMenuItem.setToggleState(this._extension._showYear)
+			   : (this._showYearMenuItem.state = this._extension._showYear));
                     break;
                 case 'year-suffix-style':
                     this._extension._yearSuffixStyle = settings.get_int('year-suffix-style');
@@ -308,28 +320,23 @@ class HijriDateButton extends PanelMenu.Button {
     }
 
     _addShowYearOption() {
-        const showYearItem = new PopupMenu.PopupSwitchMenuItem(
-            _('Show Year'),
-            this._extension._showYear,
-            { activate: false }
-        );
-        showYearItem.add_style_class_name('no-row-hover');
-        showYearItem.reactive = true;
-        showYearItem.track_hover = true;
-        showYearItem.can_focus = false;
+    const showYearItem = new PopupMenu.PopupSwitchMenuItem(
+        _('Show Year'),
+        this._extension._showYear
+    );
+    // Let the row activate normally; no manual event hacks.
+    showYearItem.add_style_class_name('no-row-hover');
 
-        showYearItem.connect('toggled', item => {
-            const val = item.state;
-            this._extension._settings.set_boolean('show-year', val);
-            this._extension._showYear = val;
-            this._updateDate();
-            this._updateYearSuffixStyleSensitivity();
-        });
+    showYearItem.connect('toggled', (item, state) => {
+        const val = (typeof state === 'boolean') ? state : item.state;
+        this._extension._settings.set_boolean('show-year', val);
+        this._extension._showYear = val;
+        this._updateDate();
+        this._updateYearSuffixStyleSensitivity();
+    });
 
-        showYearItem.connect('button-press-event', () => {
-            showYearItem.state = !showYearItem.state;
-            return Clutter.EVENT_STOP;
-        });
+    // Keep a reference so we can reflect external changes (e.g., prefs window)
+    this._showYearMenuItem = showYearItem;
 
         this.menu.addMenuItem(showYearItem);
         this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
@@ -603,6 +610,9 @@ class Extension40to44 {
             this._indicator.destroy();
             this._indicator = null;
         }
+        if (Main.panel.statusArea['hijri-date'])
+            delete Main.panel.statusArea['hijri-date'];
+
 
         this._settings = null;
     }

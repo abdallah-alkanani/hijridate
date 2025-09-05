@@ -13,7 +13,15 @@ const Gdk     = imports.gi.Gdk;
 const GLib    = imports.gi.GLib;
 
 const ExtensionUtils = imports.misc.extensionUtils;
-const _ = ExtensionUtils.gettext;
+const Gettext = imports.gettext;
+const Me = ExtensionUtils.getCurrentExtension();
+
+/* Bind gettext to our domain early; works reliably on GNOME 40–44 */
+const _ = Gettext.domain(Me.metadata['gettext-domain']).gettext;
+
+/* Also initialize translations (harmless if already initialized) */
+try { ExtensionUtils.initTranslations(Me.metadata['gettext-domain']); } catch (e) {}
+
 
 /* ── ENUMS ────────────────────────────────────────────── */
 const Position = { FAR_LEFT: 0, LEFT: 1, CENTER: 2, RIGHT: 3, FAR_RIGHT: 4 };
@@ -349,7 +357,7 @@ function _buildSharedUI(container, settings) {
         } else {
             const frame = new Gtk.Frame({ label: title, hexpand: true });
             frame.set_child(new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 6, margin_top: 6, margin_bottom: 6, margin_start: 6, margin_end: 6 }));
-            container.append(frame);
+            container.add(frame);
             return {
                 add: w => frame.get_child().append(w),
             };
