@@ -17,10 +17,6 @@ const Gettext = imports.gettext;
 const Me = ExtensionUtils.getCurrentExtension();
 const _ = Gettext.domain(Me.metadata['gettext-domain']).gettext;
 
-function init(meta) {
-    try { ExtensionUtils.initTranslations(Me.metadata['gettext-domain']); } catch (e) {}
-    return new Extension40to44();
-}
 
 
 /* ----- SegmentedButtonRow ------------------------------------------------- */

@@ -1,16 +1,21 @@
 /* prefs.js — GNOME Shell 40–44 backport */
 'use strict';
 
-/* GI versions for 40–44: GTK4; Adw is available from 42+ */
-try { imports.gi.versions.Gtk = '4.0'; } catch (e) {}
-let Adw = null;
-try { imports.gi.versions.Adw = '1'; Adw = imports.gi.Adw; } catch (e) {}
+
 
 const Gtk     = imports.gi.Gtk;
 const Gio     = imports.gi.Gio;
 const GObject = imports.gi.GObject;
 const Gdk     = imports.gi.Gdk;
 const GLib    = imports.gi.GLib;
+
+const Config  = imports.misc.config;
+const SHELL_MAJOR = parseInt(Config.PACKAGE_VERSION.split('.')[0]);
+
+let Adw = null;
+if (SHELL_MAJOR >= 42) {
+    try { Adw = imports.gi.Adw; } catch (e) {}
+}
 
 const ExtensionUtils = imports.misc.extensionUtils;
 const Gettext = imports.gettext;
