@@ -23,10 +23,24 @@
       <default>0</default>
     </key>
 
+    <!-- 0 = English · 1 = Arabic -->
+    <key name="week-language" type="i">
+      <summary>Weekday language</summary>
+      <description>Language used for weekday labels in the calendar grid.</description>
+      <default>0</default>
+    </key>
+
     <!-- 0 = Latin digits · 1 = Arabic-Indic digits -->
     <key name="number-language" type="i">
       <summary>Digit language</summary>
       <description>Numbering system for day and year values.</description>
+      <default>0</default>
+    </key>
+
+    <!-- 0 = Umm al-Qura · 1 = Islamic civil · 2 = Islamic tabular · 3 = Islamic observational · 4 = Islamic Saudi regional -->
+    <key name="calendar-method" type="i">
+      <summary>Hijri calendar method</summary>
+      <description>Calendar calculation used for Hijri month boundaries.</description>
       <default>0</default>
     </key>
 
@@ -51,6 +65,12 @@
         at run-time.  {suffix} appears only when "Show Year" is enabled.
       </description>
       <default>'{day} {month} {year} {suffix}'</default>
+    </key>
+
+    <key name="date-offset" type="i">
+      <summary>Hijri date offset</summary>
+      <description>Number of days to shift the displayed Hijri date.</description>
+      <default>0</default>
     </key>
 
     <key name="text-color" type="s">

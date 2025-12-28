@@ -4,77 +4,13 @@ import St from 'gi://St';
 import GObject from 'gi://GObject';
 import Clutter from 'gi://Clutter';
 import GLib from 'gi://GLib';
-import Gio from 'gi://Gio';
 import { Extension, gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 
-const SegmentedButtonRow = GObject.registerClass(
-class SegmentedButtonRow extends PopupMenu.PopupBaseMenuItem {
-    _init(title, items, activeIndex, onChange) {
-        super._init({ activate: false });
-
-        this._label = new St.Label({
-            text: title,
-            x_align: Clutter.ActorAlign.START
-        });
-        this._label.add_style_class_name('row-title');
-        this.add_child(this._label);
-
-
-        this.reactive = false;
-        this.track_hover = false;
-        this.can_focus = false;
-        this.add_style_class_name('no-row-hover');
-
-        const box = new St.BoxLayout({
-            style_class: 'linked',
-            x_expand: false
-        });
-        this.add_child(box);
-
-        this._buttons = [];
-        items.forEach((txt, idx) => {
-            const btn = new St.Button({
-                label: txt,
-                style_class: 'option-button',
-                toggle_mode: true,
-                reactive: true,
-                can_focus: true
-            });
-            btn.track_hover = true; // keeps pseudo :hover updates explicit
-
-            if (idx === activeIndex)
-                btn.set_checked(true);
-
-            box.add_child(btn);
-            this._buttons.push(btn);
-
-            btn.connect('clicked', () => {
-                this._buttons.forEach(b => b.set_checked(false));
-                btn.set_checked(true);
-                onChange(idx);
-            });
-        });
-
-        this._label.set_y_align(Clutter.ActorAlign.CENTER);
-        box.set_y_align(Clutter.ActorAlign.CENTER);
-    }
-
-    setSensitive(sensitive) {
-        super.setSensitive(sensitive);
-        this._buttons.forEach(btn => {
-            btn.reactive = sensitive;
-            btn.opacity = sensitive ? 255 : 80;
-        });
-        this._label.opacity = sensitive ? 255 : 80;
-    }
-});
-
-
-// Enums and their labels
+// Enums
 const Language = {
     ENGLISH: 0,
     ARABIC: 1
@@ -83,6 +19,14 @@ const Language = {
 const NumberLanguage = {
     ENGLISH: 0,
     ARABIC: 1
+};
+
+const CalendarMethod = {
+    UMM_AL_QURA: 0,
+    CIVIL: 1,
+    TABULAR: 2,
+    ISLAMIC: 3,
+    RGSA: 4
 };
 
 const YearSuffixStyle = {
@@ -98,52 +42,123 @@ const Position = {
     FAR_RIGHT: 4
 };
 
-const LanguageText = {
-    [Language.ENGLISH]: 'English',
-    [Language.ARABIC]: 'Arabic'
-};
-
-const NumberLanguageText = {
-    [NumberLanguage.ENGLISH]: 'English',
-    [NumberLanguage.ARABIC]: 'Arabic'
-};
-
-const YearSuffixStyleText = {
-    [YearSuffixStyle.AH]: 'AH',
-    [YearSuffixStyle.HEH]: 'هـ'
-};
-
-const PositionText = {
-    [Position.FAR_LEFT]: 'Far Left',
-    [Position.LEFT]: 'Left',
-    [Position.CENTER]: 'Center',
-    [Position.RIGHT]: 'Right',
-    [Position.FAR_RIGHT]: 'Far Right'
-};
-
 const DEFAULT_SPACING = 0;
+const YEAR_RANGE_LIMIT = 200;
 
+function shiftDateByDays(date, offsetDays) {
+    const d = new Date(date);
+    if (Number.isFinite(offsetDays) && offsetDays !== 0)
+        d.setDate(d.getDate() + offsetDays);
+    return d;
+}
+
+function isSameDay(left, right) {
+    return left.getFullYear() === right.getFullYear() &&
+        left.getMonth() === right.getMonth() &&
+        left.getDate() === right.getDate();
+}
+
+function getCalendarId(method) {
+    switch (method) {
+        case CalendarMethod.CIVIL:
+            return 'islamic-civil';
+        case CalendarMethod.TABULAR:
+            return 'islamic-tbla';
+        case CalendarMethod.ISLAMIC:
+            return 'islamic';
+        case CalendarMethod.RGSA:
+            return 'islamic-rgsa';
+        case CalendarMethod.UMM_AL_QURA:
+        default:
+            return 'islamic-umalqura';
+    }
+}
+
+function buildHijriLocale(lang, calendarMethod) {
+    const langTag = (lang === Language.ARABIC) ? 'ar-SA' : 'en-US';
+    const calId = getCalendarId(calendarMethod);
+    return `${langTag}-u-ca-${calId}`;
+}
+
+function createHijriFormatter(locale, options, fallbackLocale) {
+    try {
+        const fmt = new Intl.DateTimeFormat(locale, options);
+        const calendar = fmt.resolvedOptions().calendar;
+        if (calendar && calendar.startsWith('islamic'))
+            return fmt;
+    } catch (e) {
+        console.warn('Hijri formatter failed, falling back:', e);
+    }
+
+    return new Intl.DateTimeFormat(fallbackLocale, options);
+}
+
+function buildHijriFormatters(lang, numLng, calendarMethod = CalendarMethod.UMM_AL_QURA) {
+    const locale = buildHijriLocale(lang, calendarMethod);
+    const fallbackLocale = buildHijriLocale(lang, CalendarMethod.UMM_AL_QURA);
+    const numSys = (numLng === NumberLanguage.ARABIC) ? 'arab' : 'latn';
+    const numericLocale = `en-US-u-ca-${getCalendarId(calendarMethod)}`;
+    const numericFallbackLocale = 'en-US-u-ca-islamic-umalqura';
+
+    return {
+        displayDay: createHijriFormatter(locale, {
+            day: 'numeric',
+            numberingSystem: numSys
+        }, fallbackLocale),
+        displayMonth: createHijriFormatter(locale, {
+            month: 'long',
+            numberingSystem: numSys
+        }, fallbackLocale),
+        displayYear: createHijriFormatter(locale, {
+            year: 'numeric',
+            numberingSystem: numSys
+        }, fallbackLocale),
+        numericParts: createHijriFormatter(numericLocale, {
+            day: 'numeric',
+            month: 'numeric',
+            year: 'numeric',
+            numberingSystem: 'latn'
+        }, numericFallbackLocale),
+        locale,
+        numSys
+    };
+}
+
+function getHijriNumericParts(date, formatter) {
+    const parts = formatter.formatToParts(date);
+    const dict = Object.fromEntries(parts
+        .filter(p => ['day', 'month', 'year'].includes(p.type))
+        .map(p => [p.type, p.value])
+    );
+
+    return {
+        day: parseInt(dict.day, 10),
+        month: parseInt(dict.month, 10),
+        year: parseInt(dict.year, 10)
+    };
+}
 
 function getHijriDate(
     lang = Language.ENGLISH,
     numLng = NumberLanguage.ENGLISH,
+    calMethod = CalendarMethod.UMM_AL_QURA,
     showY = false,
     suff = YearSuffixStyle.AH,
-    fmtStr = '{day} {month} {year} {suffix}'
+    fmtStr = '{day} {month} {year} {suffix}',
+    offsetDays = 0
 ) {
     try {
-        const d = new Date();
-        const locale = (lang === Language.ARABIC)
-            ? 'ar-SA-u-ca-islamic-umalqura'
-            : 'en-US-u-ca-islamic-umalqura';
+        const d = shiftDateByDays(new Date(), offsetDays);
+        const locale = buildHijriLocale(lang, calMethod);
+        const fallbackLocale = buildHijriLocale(lang, CalendarMethod.UMM_AL_QURA);
         const numSys = (numLng === NumberLanguage.ARABIC) ? 'arab' : 'latn';
 
-        const parts = new Intl.DateTimeFormat(locale, {
+        const parts = createHijriFormatter(locale, {
             day: 'numeric',
             month: 'long',
             year: 'numeric',
             numberingSystem: numSys
-        }).formatToParts(d);
+        }, fallbackLocale).formatToParts(d);
 
         const dict = Object.fromEntries(parts
             .filter(p => ['day', 'month', 'year'].includes(p.type))
@@ -171,10 +186,11 @@ function getHijriDate(
                  .replace(/\s*,\s*/g, ', ')
                  .replace(/^\s+|\s+$|\,+$|\,+\s+$/g, '');
 
-        return out.trim() || '(Hijri Date)';
+        const fallbackLabel = _('Hijri Date');
+        return out.trim() || `(${fallbackLabel})`;
     } catch (e) {
         console.error('Hijri date build error:', e);
-        return '(Hijri Date)';
+        return `(${_('Hijri Date')})`;
     }
 }
 
@@ -182,8 +198,19 @@ function getHijriDate(
 const HijriDateButton = GObject.registerClass(
 class HijriDateButton extends PanelMenu.Button {
     _init(extension) {
-        super._init(0.5, 'Hijri Date');
+        super._init(0.5, _('Hijri Date'));
         this._extension = extension;
+        this._viewDate = null;
+        this._currentAdjustedViewDate = null;
+        this._currentMonthStartAdjustedDate = null;
+        this._currentHijriMonth = null;
+        this._currentHijriYear = null;
+        this._monthStartDates = null;
+        this._yearPickerBaseYear = null;
+        this._yearPickerRange = 4;
+        this._yearRangeMin = 1;
+        this._yearRangeMax = 1;
+        this._menuOpenChangedId = 0;
 
         this.box = new St.BoxLayout({
             style_class: 'panel-status-menu-box'
@@ -192,13 +219,16 @@ class HijriDateButton extends PanelMenu.Button {
             text: getHijriDate(
                 this._extension._language,
                 this._extension._numberLanguage,
+                this._extension._calendarMethod,
                 this._extension._showYear,
                 this._extension._yearSuffixStyle,
-                this._extension._dateFormat
+                this._extension._dateFormat,
+                this._extension._dateOffset
             ),
             y_align: Clutter.ActorAlign.CENTER,
             style_class: 'hijri-date-label'
         });
+        this.label_actor = this.label;
 
         this.box.add_child(this.label);
         this.add_child(this.box);
@@ -210,12 +240,12 @@ class HijriDateButton extends PanelMenu.Button {
         this.menu.actor.add_style_class_name('popup-menu-below-panel');
         this.menu.setSourceAlignment(0.5);
 
-        this._addLanguageOptions();
-        this._addNumberLanguageOptions();
-        this._addPositionOptions();
-        this._addShowYearOption();
-        this._addYearSuffixStyleOptions();
+        this._addCalendar();
         this._addSettingsButton();
+        this._menuOpenChangedId = this.menu.connect('open-state-changed', (menu, isOpen) => {
+            if (!isOpen)
+                this._hidePickers();
+        });
 
         this._settingsChangedId = this._extension._settings.connect('changed', (settings, key) => {
             switch (key) {
@@ -233,16 +263,25 @@ class HijriDateButton extends PanelMenu.Button {
                 }
                 case 'language':
                     this._extension._language = settings.get_int('language');
+                    if (!this._extension._hasWeekLanguageSetting)
+                        this._extension._weekLanguage = this._extension._language;
                     this._updateDate();
+                    break;
+                case 'week-language':
+                    this._extension._weekLanguage = settings.get_int('week-language');
+                    this._updateCalendar();
                     break;
                 case 'number-language':
                     this._extension._numberLanguage = settings.get_int('number-language');
                     this._updateDate();
                     break;
+                case 'calendar-method':
+                    this._extension._calendarMethod = settings.get_int('calendar-method');
+                    this._updateDate();
+                    break;
                 case 'show-year':
                     this._extension._showYear = settings.get_boolean('show-year');
                     this._updateDate();
-                    this._updateYearSuffixStyleSensitivity();
                     break;
                 case 'year-suffix-style':
                     this._extension._yearSuffixStyle = settings.get_int('year-suffix-style');
@@ -251,6 +290,11 @@ class HijriDateButton extends PanelMenu.Button {
                 case 'date-format':
                     this._extension._dateFormat = settings.get_string('date-format');
                     this._updateDate();
+                    break;
+                case 'date-offset':
+                    this._extension._dateOffset = settings.get_int('date-offset');
+                    this._updateDate();
+                    this._updateCalendar();
                     break;
                 case 'text-color':
                     this._extension._textColor = settings.get_string('text-color');
@@ -269,103 +313,151 @@ class HijriDateButton extends PanelMenu.Button {
         );
     }
 
-    _addLanguageOptions() {
-        const langItems = Object.values(LanguageText);
-        const langRow = new SegmentedButtonRow(
-            _('Language'),
-            langItems,
-            this._extension._language,
-            idx => {
-                this._extension._settings.set_int('language', idx);
-                this._extension._language = idx;
-                this._updateDate();
-            }
-        );
-        this.menu.addMenuItem(langRow);
-        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-    }
+    _addCalendar() {
+        const calendarItem = new PopupMenu.PopupBaseMenuItem({ activate: false });
+        calendarItem.add_style_class_name('no-row-hover');
+        calendarItem.reactive = false;
+        calendarItem.track_hover = false;
+        calendarItem.can_focus = false;
 
-    _addNumberLanguageOptions() {
-        const numberItems = Object.values(NumberLanguageText);
-        const numberRow = new SegmentedButtonRow(
-            _('Number Language'),
-            numberItems,
-            this._extension._numberLanguage,
-            idx => {
-                this._extension._settings.set_int('number-language', idx);
-                this._extension._numberLanguage = idx;
-                this._updateDate();
-            }
-        );
-        this.menu.addMenuItem(numberRow);
-        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-    }
-
-
-    _addPositionOptions() {
-        const posItems = Object.values(PositionText);
-        const posRow = new SegmentedButtonRow(
-            _('Position'),
-            posItems,
-            this._extension._position,
-            idx => {
-                this._extension._settings.set_int('position', idx);
-                this._extension.setPosition(idx);
-            }
-        );
-        this.menu.addMenuItem(posRow);
-        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-    }
-
-    _addShowYearOption() {
-        const showYearItem = new PopupMenu.PopupSwitchMenuItem(
-            _('Show Year'),
-            this._extension._showYear,
-            { activate: false }
-        );
-        showYearItem.add_style_class_name('no-row-hover');
-        showYearItem.reactive = true;
-        showYearItem.track_hover = true;
-        showYearItem.can_focus = false;
-
-        showYearItem.connect('toggled', item => {
-            const val = item.state;
-            this._extension._settings.set_boolean('show-year', val);
-            this._extension._showYear = val;
-            this._updateDate();
-            this._updateYearSuffixStyleSensitivity();
+        const calendarBox = new St.BoxLayout({
+            vertical: true,
+            style_class: 'hijri-calendar',
+            x_expand: true
         });
+        calendarItem.add_child(calendarBox);
 
-        showYearItem.connect('button-press-event', () => {
-            showYearItem.state = !showYearItem.state;
-            return Clutter.EVENT_STOP;
+        this._calendarHeader = new St.BoxLayout({
+            style_class: 'hijri-calendar-header-row',
+            x_expand: true
         });
+        calendarBox.add_child(this._calendarHeader);
 
-        this.menu.addMenuItem(showYearItem);
-        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-    }
+        this._calendarHeaderSpacer = new St.Widget({
+            style_class: 'hijri-calendar-header-spacer'
+        });
+        this._calendarHeader.add_child(this._calendarHeaderSpacer);
 
-    _addYearSuffixStyleOptions() {
-        const yearItems = Object.values(YearSuffixStyleText);
-        const yearRow = new SegmentedButtonRow(
-            _('Year Suffix Style'),
-            yearItems,
-            this._extension._yearSuffixStyle,
-            idx => {
-                this._extension._settings.set_int('year-suffix-style', idx);
-                this._extension._yearSuffixStyle = idx;
-                this._updateDate();
-            }
-        );
-        this._yearSuffixStyleRow = yearRow;
-        this.menu.addMenuItem(yearRow);
-        this._updateYearSuffixStyleSensitivity();
+        this._calendarHeaderCenter = new St.Widget({
+            layout_manager: new Clutter.BinLayout(),
+            x_expand: true
+        });
+        this._calendarHeaderCenterBox = new St.BoxLayout({
+            x_align: Clutter.ActorAlign.CENTER,
+            y_align: Clutter.ActorAlign.CENTER
+        });
+        this._calendarHeaderCenter.add_child(this._calendarHeaderCenterBox);
+        this._calendarHeader.add_child(this._calendarHeaderCenter);
+
+        this._calendarMonthLabel = new St.Label({
+            style_class: 'hijri-calendar-header',
+            x_align: Clutter.ActorAlign.CENTER,
+            y_align: Clutter.ActorAlign.CENTER
+        });
+        this._calendarMonthButton = new St.Button({
+            child: this._calendarMonthLabel,
+            label_actor: this._calendarMonthLabel,
+            style_class: 'hijri-calendar-header-button hijri-calendar-header-month',
+            can_focus: true,
+            reactive: true,
+            track_hover: true
+        });
+        this._calendarMonthButton.connect('clicked', () => this._toggleMonthPicker());
+
+        this._calendarYearLabel = new St.Label({
+            style_class: 'hijri-calendar-header',
+            x_align: Clutter.ActorAlign.CENTER,
+            y_align: Clutter.ActorAlign.CENTER
+        });
+        this._calendarYearButton = new St.Button({
+            child: this._calendarYearLabel,
+            label_actor: this._calendarYearLabel,
+            style_class: 'hijri-calendar-header-button',
+            can_focus: true,
+            reactive: true,
+            track_hover: true
+        });
+        this._calendarYearButton.connect('clicked', () => this._toggleYearPicker());
+
+        this._calendarHeaderCenterBox.add_child(this._calendarMonthButton);
+        this._calendarHeaderCenterBox.add_child(this._calendarYearButton);
+
+        this._calendarTodayButton = new St.Button({
+            label: _('Today'),
+            style_class: 'hijri-calendar-today-button',
+            can_focus: true,
+            reactive: true,
+            track_hover: true,
+            x_align: Clutter.ActorAlign.END,
+            y_align: Clutter.ActorAlign.CENTER
+        });
+        this._calendarTodayButton.connect('clicked', () => this._goToToday());
+        this._calendarTodayButton.connect('notify::width', () => this._syncHeaderSpacer());
+        this._calendarTodayButton.connect('style-changed', () => this._syncHeaderSpacer());
+        this._calendarHeader.add_child(this._calendarTodayButton);
+        this._syncHeaderSpacer();
+
+        this._monthPickerBox = new St.BoxLayout({
+            vertical: true,
+            style_class: 'hijri-calendar-picker',
+            x_expand: true,
+            visible: false
+        });
+        this._monthPickerGridLayout = new Clutter.GridLayout({
+            column_homogeneous: true,
+            row_homogeneous: true
+        });
+        this._monthPickerGridLayout.set_column_spacing(0);
+        this._monthPickerGridLayout.set_row_spacing(0);
+
+        this._monthPickerGrid = new St.Widget({
+            layout_manager: this._monthPickerGridLayout,
+            style_class: 'hijri-calendar-picker-grid',
+            x_expand: true
+        });
+        this._monthPickerBox.add_child(this._monthPickerGrid);
+        calendarBox.add_child(this._monthPickerBox);
+
+        this._yearPickerBox = new St.BoxLayout({
+            vertical: true,
+            style_class: 'hijri-calendar-picker',
+            x_expand: true,
+            visible: false,
+            reactive: true,
+            can_focus: true,
+            track_hover: true
+        });
+        this._yearPickerBox.connect('scroll-event', this._onYearPickerScroll.bind(this));
+
+        this._yearPickerList = new St.BoxLayout({
+            vertical: true,
+            style_class: 'hijri-calendar-year-list',
+            x_expand: true
+        });
+        this._yearPickerBox.add_child(this._yearPickerList);
+        calendarBox.add_child(this._yearPickerBox);
+
+        this._calendarGridLayout = new Clutter.GridLayout({
+            column_homogeneous: true,
+            row_homogeneous: true
+        });
+        this._calendarGridLayout.set_column_spacing(0);
+        this._calendarGridLayout.set_row_spacing(0);
+
+        this._calendarGrid = new St.Widget({
+            layout_manager: this._calendarGridLayout,
+            style_class: 'hijri-calendar-grid calendar',
+            x_expand: true
+        });
+        calendarBox.add_child(this._calendarGrid);
+
+        this.menu.addMenuItem(calendarItem);
+
+        this._updateCalendar();
     }
 
     _addSettingsButton() {
-        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-        
-        const settingsItem = new PopupMenu.PopupMenuItem(_('More Settings...'));
+        const settingsItem = new PopupMenu.PopupMenuItem(_('Settings'));
         settingsItem.add_style_class_name('settings-button-item');
         
         settingsItem.connect('activate', () => {
@@ -380,27 +472,422 @@ class HijriDateButton extends PanelMenu.Button {
         this.menu.addMenuItem(settingsItem);
     }
 
-    _updateYearSuffixStyleSensitivity() {
-        if (!this._yearSuffixStyleRow) return;
-    
-        const enabled = this._extension._showYear;
-        this._yearSuffixStyleRow.setSensitive(enabled);
-        this._yearSuffixStyleRow._buttons.forEach(
-            btn => (btn.opacity = enabled ? 255 : 80)
+    _syncHeaderSpacer() {
+        if (!this._calendarHeaderSpacer || !this._calendarTodayButton)
+            return;
+        const [, naturalWidth] = this._calendarTodayButton.get_preferred_width(-1);
+        let width = naturalWidth;
+        try {
+            const themeNode = this._calendarTodayButton.get_theme_node?.();
+            if (themeNode) {
+                width += themeNode.get_margin(St.Side.LEFT) + themeNode.get_margin(St.Side.RIGHT);
+            }
+        } catch (e) {
+            console.warn('Failed to read Today button margins:', e);
+        }
+        this._calendarHeaderSpacer.set_style(`width: ${Math.max(0, width)}px;`);
+    }
+
+    _hidePickers() {
+        if (this._monthPickerBox)
+            this._monthPickerBox.visible = false;
+        if (this._yearPickerBox)
+            this._yearPickerBox.visible = false;
+    }
+
+    _toggleMonthPicker() {
+        if (!this._monthPickerBox)
+            return;
+        const nextVisible = !this._monthPickerBox.visible;
+        this._monthPickerBox.visible = nextVisible;
+        if (nextVisible && this._yearPickerBox)
+            this._yearPickerBox.visible = false;
+        this._updateCalendar();
+    }
+
+    _toggleYearPicker() {
+        if (!this._yearPickerBox)
+            return;
+        const nextVisible = !this._yearPickerBox.visible;
+        this._yearPickerBox.visible = nextVisible;
+        if (nextVisible) {
+            if (this._monthPickerBox)
+                this._monthPickerBox.visible = false;
+            this._yearPickerBaseYear = Number.isFinite(this._currentHijriYear)
+                ? this._currentHijriYear
+                : 1;
+            this._yearPickerBaseYear = Math.min(
+                Math.max(this._yearPickerBaseYear, this._yearRangeMin),
+                this._yearRangeMax
+            );
+        }
+        this._updateCalendar();
+    }
+
+    _goToToday() {
+        this._viewDate = null;
+        this._hidePickers();
+        this._updateCalendar();
+    }
+
+    _setViewDateFromAdjusted(adjustedDate) {
+        const offsetDays = this._extension._dateOffset || 0;
+        this._viewDate = shiftDateByDays(adjustedDate, -offsetDays);
+    }
+
+    _getMonthStartAdjustedDate(adjustedDate, formatters) {
+        let date = new Date(adjustedDate);
+        let parts = getHijriNumericParts(date, formatters.numericParts);
+        while (parts.day !== 1) {
+            date.setDate(date.getDate() - 1);
+            parts = getHijriNumericParts(date, formatters.numericParts);
+        }
+        return date;
+    }
+
+    _getNextHijriMonthStart(adjustedMonthStart, formatters) {
+        let date = new Date(adjustedMonthStart);
+        let parts = getHijriNumericParts(date, formatters.numericParts);
+        const month = parts.month;
+        const year = parts.year;
+        do {
+            date.setDate(date.getDate() + 1);
+            parts = getHijriNumericParts(date, formatters.numericParts);
+        } while (parts.month === month && parts.year === year);
+        return date;
+    }
+
+    _getPrevHijriMonthStart(adjustedMonthStart, formatters) {
+        let date = new Date(adjustedMonthStart);
+        date.setDate(date.getDate() - 1);
+        let parts = getHijriNumericParts(date, formatters.numericParts);
+        while (parts.day !== 1) {
+            date.setDate(date.getDate() - 1);
+            parts = getHijriNumericParts(date, formatters.numericParts);
+        }
+        return date;
+    }
+
+    _getMonthStartDatesForYear(formatters, targetParts) {
+        const starts = new Array(12);
+        if (!this._currentMonthStartAdjustedDate)
+            return starts;
+
+        starts[targetParts.month - 1] = new Date(this._currentMonthStartAdjustedDate);
+
+        let cursor = new Date(this._currentMonthStartAdjustedDate);
+        for (let month = targetParts.month; month < 12; month++) {
+            cursor = this._getNextHijriMonthStart(cursor, formatters);
+            starts[month] = new Date(cursor);
+        }
+
+        cursor = new Date(this._currentMonthStartAdjustedDate);
+        for (let month = targetParts.month; month > 1; month--) {
+            cursor = this._getPrevHijriMonthStart(cursor, formatters);
+            starts[month - 2] = new Date(cursor);
+        }
+
+        return starts;
+    }
+
+    _buildMonthPicker(formatters, targetParts) {
+        if (!this._monthPickerGrid || !this._monthPickerGridLayout)
+            return;
+
+        const monthStarts = this._getMonthStartDatesForYear(formatters, targetParts);
+        this._monthStartDates = monthStarts;
+
+        this._monthPickerGrid.get_children().forEach(child => child.destroy());
+
+        const cols = 3;
+        const isArabic = this._extension._language === Language.ARABIC;
+        for (let i = 0; i < monthStarts.length; i++) {
+            const date = monthStarts[i];
+            const label = new St.Label({
+                text: date ? formatters.displayMonth.format(date) : '',
+                x_align: Clutter.ActorAlign.CENTER,
+                y_align: Clutter.ActorAlign.CENTER
+            });
+            const button = new St.Button({
+                child: label,
+                label_actor: label,
+                style_class: 'hijri-calendar-month-button',
+                x_expand: true,
+                can_focus: true
+            });
+            if (i + 1 === targetParts.month)
+                button.add_style_class_name('selected');
+            button.connect('clicked', () => this._selectMonth(i));
+            const column = isArabic ? (cols - 1) - (i % cols) : (i % cols);
+            this._monthPickerGridLayout.attach(button, column, Math.floor(i / cols), 1, 1);
+        }
+    }
+
+    _renderYearPicker(formatters, selectedYear) {
+        if (!this._yearPickerList)
+            return;
+
+        if (!Number.isFinite(this._yearPickerBaseYear))
+            this._yearPickerBaseYear = selectedYear;
+
+        const baseYear = Math.min(
+            Math.max(this._yearPickerBaseYear, this._yearRangeMin),
+            this._yearRangeMax
         );
-        this._yearSuffixStyleRow._label.opacity = enabled ? 255 : 80;
-    }    
+        this._yearPickerBaseYear = baseYear;
+        const start = Math.max(this._yearRangeMin, baseYear - this._yearPickerRange);
+        const end = Math.min(this._yearRangeMax, baseYear + this._yearPickerRange);
+        const yearFormatter = new Intl.NumberFormat(formatters.locale, {
+            numberingSystem: formatters.numSys
+        });
+
+        this._yearPickerList.get_children().forEach(child => child.destroy());
+
+        for (let year = start; year <= end; year++) {
+            const label = new St.Label({
+                text: yearFormatter.format(year),
+                x_align: Clutter.ActorAlign.CENTER,
+                y_align: Clutter.ActorAlign.CENTER
+            });
+            const button = new St.Button({
+                child: label,
+                label_actor: label,
+                style_class: 'hijri-calendar-year-button',
+                x_expand: true,
+                can_focus: true
+            });
+            if (year === selectedYear)
+                button.add_style_class_name('selected');
+            button.connect('clicked', () => this._selectYear(year));
+            this._yearPickerList.add_child(button);
+        }
+    }
+
+    _onYearPickerScroll(_actor, event) {
+        if (!this._yearPickerBox || !this._yearPickerBox.visible)
+            return Clutter.EVENT_PROPAGATE;
+
+        let delta = 0;
+        switch (event.get_scroll_direction()) {
+            case Clutter.ScrollDirection.UP:
+            case Clutter.ScrollDirection.LEFT:
+                delta = -1;
+                break;
+            case Clutter.ScrollDirection.DOWN:
+            case Clutter.ScrollDirection.RIGHT:
+                delta = 1;
+                break;
+            case Clutter.ScrollDirection.SMOOTH: {
+                const [, dy] = event.get_scroll_delta();
+                if (dy === 0)
+                    return Clutter.EVENT_STOP;
+                delta = dy > 0 ? 1 : -1;
+                break;
+            }
+        }
+
+        if (delta !== 0) {
+            const baseYear = Number.isFinite(this._yearPickerBaseYear)
+                ? this._yearPickerBaseYear
+                : (Number.isFinite(this._currentHijriYear) ? this._currentHijriYear : 1);
+            this._yearPickerBaseYear = Math.min(
+                Math.max(baseYear + delta, this._yearRangeMin),
+                this._yearRangeMax
+            );
+            const formatters = buildHijriFormatters(
+                this._extension._language,
+                this._extension._numberLanguage,
+                this._extension._calendarMethod
+            );
+            this._renderYearPicker(formatters, this._currentHijriYear);
+        }
+
+        return Clutter.EVENT_STOP;
+    }
+
+    _selectMonth(monthIndex) {
+        if (!this._monthStartDates || !this._monthStartDates[monthIndex])
+            return;
+        this._setViewDateFromAdjusted(this._monthStartDates[monthIndex]);
+        this._hidePickers();
+        this._updateCalendar();
+    }
+
+    _selectYear(year) {
+        if (year < this._yearRangeMin || year > this._yearRangeMax)
+            return;
+        const offsetDays = this._extension._dateOffset || 0;
+        const formatters = buildHijriFormatters(
+            this._extension._language,
+            this._extension._numberLanguage,
+            this._extension._calendarMethod
+        );
+        const anchorAdjustedDate = this._currentAdjustedViewDate
+            ? new Date(this._currentAdjustedViewDate)
+            : shiftDateByDays(new Date(), offsetDays);
+        const anchorParts = getHijriNumericParts(anchorAdjustedDate, formatters.numericParts);
+        const targetMonth = this._currentHijriMonth || anchorParts.month;
+        const targetDate = this._findAdjustedDateForHijriMonthYear(
+            year,
+            targetMonth,
+            anchorAdjustedDate,
+            formatters
+        );
+        if (!targetDate)
+            return;
+        this._setViewDateFromAdjusted(targetDate);
+        this._hidePickers();
+        this._updateCalendar();
+    }
+
+    _findAdjustedDateForHijriMonthYear(targetYear, targetMonth, anchorAdjustedDate, formatters) {
+        let date = new Date(anchorAdjustedDate);
+        let parts = getHijriNumericParts(date, formatters.numericParts);
+        const forward = targetYear > parts.year ||
+            (targetYear === parts.year && targetMonth > parts.month);
+        const step = forward ? 1 : -1;
+        let guard = 0;
+        const maxSteps = Math.ceil((YEAR_RANGE_LIMIT + 2) * 370);
+
+        while ((parts.year !== targetYear || parts.month !== targetMonth) && guard < maxSteps) {
+            date.setDate(date.getDate() + step);
+            parts = getHijriNumericParts(date, formatters.numericParts);
+            guard++;
+        }
+
+        if (parts.year !== targetYear || parts.month !== targetMonth) {
+            console.warn('Hijri calendar lookup exceeded safe range');
+            return null;
+        }
+
+        while (parts.day !== 1 && guard < maxSteps) {
+            date.setDate(date.getDate() - 1);
+            parts = getHijriNumericParts(date, formatters.numericParts);
+            guard++;
+        }
+
+        return date;
+    }
+
+    _updateCalendar() {
+        if (!this._calendarGrid || !this._calendarMonthLabel || !this._calendarYearLabel)
+            return;
+
+        const offsetDays = this._extension._dateOffset || 0;
+        const baseDate = new Date();
+        const viewDate = this._viewDate ? new Date(this._viewDate) : baseDate;
+        const adjustedDate = shiftDateByDays(viewDate, offsetDays);
+        const formatters = buildHijriFormatters(
+            this._extension._language,
+            this._extension._numberLanguage,
+            this._extension._calendarMethod
+        );
+
+        const targetParts = getHijriNumericParts(adjustedDate, formatters.numericParts);
+        this._currentAdjustedViewDate = new Date(adjustedDate);
+        this._currentHijriMonth = targetParts.month;
+        this._currentHijriYear = targetParts.year;
+
+        const actualFirstDate = this._getMonthStartAdjustedDate(adjustedDate, formatters);
+        this._currentMonthStartAdjustedDate = new Date(actualFirstDate);
+
+        const firstOfDisplayDate = shiftDateByDays(actualFirstDate, -offsetDays);
+
+        this._calendarMonthLabel.set_text(formatters.displayMonth.format(adjustedDate));
+        let yearText = formatters.displayYear.format(adjustedDate);
+        if (this._extension._language === Language.ARABIC) {
+            yearText = yearText
+                .replace(/[\u0647\u0640]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+        this._calendarYearLabel.set_text(yearText);
+
+        const anchorAdjustedDate = shiftDateByDays(baseDate, offsetDays);
+        const anchorParts = getHijriNumericParts(anchorAdjustedDate, formatters.numericParts);
+        this._yearRangeMin = Math.max(1, anchorParts.year - YEAR_RANGE_LIMIT);
+        this._yearRangeMax = anchorParts.year + YEAR_RANGE_LIMIT;
+
+        if (this._monthPickerBox?.visible)
+            this._buildMonthPicker(formatters, targetParts);
+        if (this._yearPickerBox?.visible)
+            this._renderYearPicker(formatters, targetParts.year);
+
+        const firstWeekday = firstOfDisplayDate.getDay();
+        const gridStartDate = new Date(firstOfDisplayDate);
+        gridStartDate.setDate(gridStartDate.getDate() - firstWeekday);
+
+        this._calendarGrid.get_children().forEach(child => child.destroy());
+
+        const weekLocale = buildHijriLocale(
+            this._extension._weekLanguage,
+            this._extension._calendarMethod
+        );
+        const weekdayFormatter = new Intl.DateTimeFormat(weekLocale, { weekday: 'narrow' });
+        const weekdayLabels = [];
+        const weekdayBase = new Date(1970, 0, 4); // Sunday
+        for (let i = 0; i < 7; i++) {
+            const weekdayDate = new Date(weekdayBase);
+            weekdayDate.setDate(weekdayBase.getDate() + i);
+            weekdayLabels.push(weekdayFormatter.format(weekdayDate));
+        }
+
+        weekdayLabels.forEach((label, index) => {
+            const dayLabel = new St.Label({
+                text: label,
+                style_class: 'hijri-calendar-weekday calendar-day-heading',
+                x_align: Clutter.ActorAlign.CENTER,
+                y_align: Clutter.ActorAlign.CENTER
+            });
+            this._calendarGridLayout.attach(dayLabel, index, 0, 1, 1);
+        });
+
+        for (let i = 0; i < 42; i++) {
+            const cellDate = new Date(gridStartDate);
+            cellDate.setDate(gridStartDate.getDate() + i);
+
+            const displayDate = shiftDateByDays(cellDate, offsetDays);
+            const cellParts = getHijriNumericParts(displayDate, formatters.numericParts);
+            const isCurrentMonth = cellParts.month === targetParts.month &&
+                cellParts.year === targetParts.year;
+            const isToday = isSameDay(cellDate, baseDate);
+
+            const dayButton = new St.Button({
+                label: formatters.displayDay.format(displayDate),
+                style_class: 'hijri-calendar-day calendar-day',
+                x_align: Clutter.ActorAlign.CENTER,
+                y_align: Clutter.ActorAlign.CENTER,
+                can_focus: false,
+                reactive: false,
+                track_hover: false
+            });
+
+            if (!isCurrentMonth) {
+                dayButton.add_style_class_name('other-month');
+                dayButton.add_style_class_name('calendar-other-month');
+            }
+            if (isToday) {
+                dayButton.add_style_class_name('today');
+                dayButton.add_style_class_name('calendar-today');
+            }
+
+            this._calendarGridLayout.attach(dayButton, i % 7, Math.floor(i / 7) + 1, 1, 1);
+        }
+    }
 
     _updateDate() {
         this.label.set_text(
             getHijriDate(
                 this._extension._language,
                 this._extension._numberLanguage,
+                this._extension._calendarMethod,
                 this._extension._showYear,
                 this._extension._yearSuffixStyle,
-                this._extension._dateFormat
+                this._extension._dateFormat,
+                this._extension._dateOffset
             )
         );
+        this._updateCalendar();
     }
 
     _updateColor() {
@@ -414,6 +901,8 @@ class HijriDateButton extends PanelMenu.Button {
             GLib.Source.remove(this._timer);
             this._timer = 0;
         }
+        if (this._menuOpenChangedId)
+            this.menu.disconnect(this._menuOpenChangedId);
         if (this._settingsChangedId)
             this._extension._settings.disconnect(this._settingsChangedId);
         super.destroy();
@@ -425,13 +914,17 @@ export default class HijriDateDisplayExtension extends Extension {
     _position       = Position.LEFT;
     _spacing        = DEFAULT_SPACING;
     _language       = Language.ENGLISH;
+    _weekLanguage   = Language.ENGLISH;
     _numberLanguage = NumberLanguage.ENGLISH;
+    _calendarMethod = CalendarMethod.UMM_AL_QURA;
     _showYear       = false;
     _yearSuffixStyle= YearSuffixStyle.AH;
     _dateFormat     = '{day} {month} {year} {suffix}';
+    _dateOffset     = 0;
     _textColor      = '#ffffff';
     _spacer         = null;
     _settings       = null;
+    _hasWeekLanguageSetting = false;
     _centerTimeout  = 0;
 
     constructor(metadata) {
@@ -443,10 +936,17 @@ export default class HijriDateDisplayExtension extends Extension {
         this._position       = this._settings.get_int('position');
         this._spacing        = this._settings.get_int('spacing');
         this._language       = this._settings.get_int('language');
+        this._hasWeekLanguageSetting =
+            this._settings.settings_schema?.has_key?.('week-language') ?? false;
+        this._weekLanguage   = this._hasWeekLanguageSetting
+            ? this._settings.get_int('week-language')
+            : this._language;
         this._numberLanguage = this._settings.get_int('number-language');
+        this._calendarMethod = this._settings.get_int('calendar-method');
         this._showYear       = this._settings.get_boolean('show-year');
         this._yearSuffixStyle= this._settings.get_int('year-suffix-style');
         this._dateFormat     = this._settings.get_string('date-format');
+        this._dateOffset     = this._settings.get_int('date-offset');
         this._textColor      = this._settings.get_string('text-color');
         
         // Add a small delay for CENTER position to ensure dateMenu is loaded
@@ -532,10 +1032,6 @@ export default class HijriDateDisplayExtension extends Extension {
         }
         // Re-add panel with new position
         this._addToPanel();
-        // Re-add spacer if needed
-        if (this._spacing > 0 && this._spacer) {
-            this._addSpacerToPanel(this._spacer);
-        }
     }
 
     _addSpacerToPanel(spacer) {

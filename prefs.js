@@ -6,17 +6,17 @@ import Gio     from 'gi://Gio';
 import Gtk     from 'gi://Gtk';
 import GObject from 'gi://GObject';
 import Gdk     from 'gi://Gdk';
-import GLib    from 'gi://GLib';
 
 import {
     ExtensionPreferences,
-    gettext as _        
+    gettext as _
 } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 /* ── ENUMS ────────────────────────────────────────────── */
 const Position = { FAR_LEFT: 0, LEFT: 1, CENTER: 2, RIGHT: 3, FAR_RIGHT: 4 };
 const Language = { ENGLISH: 0, ARABIC: 1 };
 const NumberLanguage = { ENGLISH: 0, ARABIC: 1 };
+const CalendarMethod = { UMM_AL_QURA: 0, CIVIL: 1, TABULAR: 2, ISLAMIC: 3, RGSA: 4 };
 const YearSuffixStyle = { AH: 0, HEH: 1 };
 
 const PositionTextRAW = {
@@ -33,6 +33,13 @@ const LanguageTextRAW = {
 const NumberLanguageTextRAW = {
     [NumberLanguage.ENGLISH]: 'English',
     [NumberLanguage.ARABIC] : 'Arabic',
+};
+const CalendarMethodTextRAW = {
+    [CalendarMethod.UMM_AL_QURA]: 'Umm al-Qura (Saudi)',
+    [CalendarMethod.CIVIL]      : 'Islamic (civil)',
+    [CalendarMethod.TABULAR]    : 'Islamic (tabular)',
+    [CalendarMethod.ISLAMIC]    : 'Islamic (observational)',
+    [CalendarMethod.RGSA]       : 'Islamic (Saudi, regional)',
 };
 const YearSuffixStyleTextRAW = {
     [YearSuffixStyle.AH] : 'AH',
@@ -334,6 +341,7 @@ export default class HijriDatePreferences extends ExtensionPreferences {
         const PositionText        = tr(PositionTextRAW);
         const LanguageText        = tr(LanguageTextRAW);
         const NumberLanguageText  = tr(NumberLanguageTextRAW);
+        const CalendarMethodText  = tr(CalendarMethodTextRAW);
         const YearSuffixStyleText = tr(YearSuffixStyleTextRAW);
 
         
@@ -361,10 +369,36 @@ export default class HijriDatePreferences extends ExtensionPreferences {
         ).row);
 
         languageGroup.add(new SegmentedRow(
+            _('Week Language'), LanguageText,
+            settings.get_int('week-language'),
+            idx => settings.set_int('week-language', idx)
+        ).row);
+
+        languageGroup.add(new SegmentedRow(
             _('Number Language'), NumberLanguageText,
             settings.get_int('number-language'),
             idx => settings.set_int('number-language', idx)
         ).row);
+
+        const calendarMethodList = new Gtk.StringList();
+        [
+            CalendarMethodText[CalendarMethod.UMM_AL_QURA],
+            CalendarMethodText[CalendarMethod.CIVIL],
+            CalendarMethodText[CalendarMethod.TABULAR],
+            CalendarMethodText[CalendarMethod.ISLAMIC],
+            CalendarMethodText[CalendarMethod.RGSA],
+        ].forEach(label => calendarMethodList.append(label));
+
+        const calendarMethodRow = new Adw.ComboRow({
+            title: _('Calendar Method'),
+            subtitle: _('Choose how Hijri months are calculated'),
+            model: calendarMethodList,
+            selected: settings.get_int('calendar-method'),
+        });
+        calendarMethodRow.connect('notify::selected', () => {
+            settings.set_int('calendar-method', calendarMethodRow.selected);
+        });
+        languageGroup.add(calendarMethodRow);
 
 
         /* ─Date format row─ */
@@ -433,9 +467,71 @@ export default class HijriDatePreferences extends ExtensionPreferences {
             fmtEntry.text = '{day} {month} {year} {suffix}'
         );     
 
+        const offsetRow = new Adw.ActionRow({
+            title: _('Hijri Date Adjustment'),
+            activatable: false,
+            selectable: false,
+        });
+        offsetRow.add_css_class('no-row-hover');
 
+        const adjustBox = new Gtk.Box({
+            orientation: Gtk.Orientation.HORIZONTAL,
+            spacing: 0,
+            css_classes: ['linked'],
+            halign: Gtk.Align.END,
+        });
 
-        
+        const minusBtn = new Gtk.Button({
+            label: '-',
+            can_focus: true,
+            css_classes: ['option-button'],
+        });
+        const plusBtn = new Gtk.Button({
+            label: '+',
+            can_focus: true,
+            css_classes: ['option-button'],
+        });
+
+        adjustBox.append(minusBtn);
+        adjustBox.append(plusBtn);
+
+        const offsetValue = new Gtk.Label({
+            xalign: 1,
+            valign: Gtk.Align.CENTER,
+        });
+
+        const formatOffsetLabel = value => {
+            if (value === 0)
+                return '0';
+            return value > 0 ? `+${value}` : `${value}`;
+        };
+
+        const updateOffsetLabel = () => {
+            offsetValue.label = formatOffsetLabel(settings.get_int('date-offset'));
+        };
+
+        const adjustOffset = delta => {
+            const next = settings.get_int('date-offset') + delta;
+            settings.set_int('date-offset', next);
+            updateOffsetLabel();
+        };
+
+        minusBtn.connect('clicked', () => adjustOffset(-1));
+        plusBtn.connect('clicked', () => adjustOffset(1));
+        settings.connect('changed::date-offset', updateOffsetLabel);
+        updateOffsetLabel();
+
+        const offsetBox = new Gtk.Box({
+            orientation: Gtk.Orientation.HORIZONTAL,
+            spacing: 8,
+            halign: Gtk.Align.END,
+        });
+        offsetBox.append(adjustBox);
+        offsetBox.append(offsetValue);
+        offsetRow.add_suffix(offsetBox);
+
+        formatGroup.add(offsetRow);
+
         formatGroup.add(new SegmentedRow(
             _('Position'), PositionText,
             settings.get_int('position'),
@@ -593,4 +689,3 @@ export default class HijriDatePreferences extends ExtensionPreferences {
         colorGroup.add(colorExpander);
     }
 }
-

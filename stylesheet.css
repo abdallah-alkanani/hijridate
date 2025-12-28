@@ -12,14 +12,6 @@
     background-color: transparent;
 }
 
-.row-title {                    
-    color: #fff;
-    line-height: 1.1;           
-}
-.row-title:insensitive { 
-    opacity: 0.35; 
-}  
-
 /* Panel button */
 .hijri-date-button {
     padding: 0 6px;
@@ -40,36 +32,6 @@
     font-weight: bold;
     margin: 0;
     padding: 0;
-}
-
-/* Popup menu segmented controls */
-.popup-menu .linked {
-    background-color: transparent !important;
-    padding: 3px !important;
-    border-radius: 10px !important;
-}
-
-.popup-menu .option-button {
-    background: transparent;
-    color: rgba(255,255,255,0.75);
-    padding: 4px 14px !important;
-    border-radius: 10px !important;
-    transition: background-color 120ms, box-shadow 120ms, color 120ms;
-}
-
-.popup-menu .option-button:hover {
-    background-color: rgba(255,255,255,0.16) !important;
-    color: rgba(255,255,255,0.95) !important;
-    text-decoration: none;
-}
-
-.popup-menu .option-button:checked {
-    background-color: rgba(255,255,255,0.24) !important;
-    color: #fff !important;
-    font-weight: 600;
-}
-.popup-menu .option-button:active {
-    background-color: rgba(255,255,255,0.20) !important;
 }
 
 /* Settings button in popup */
@@ -97,4 +59,117 @@
     margin: 0;
     padding: 0;
     border: 0;
+}
+
+/* Calendar */
+.hijri-calendar {
+    padding: 10px 14px 8px;
+    min-width: 320px;
+}
+
+.hijri-calendar-header-row {
+    margin-bottom: 8px;
+}
+
+.hijri-calendar-header {
+    font-size: 16px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.95);
+}
+
+.hijri-calendar-header-button {
+    background-color: transparent;
+    padding: 0;
+    margin: 0;
+    border-radius: 0;
+}
+
+.hijri-calendar-header-button:hover,
+.hijri-calendar-header-button:focus,
+.hijri-calendar-header-button:active {
+    background-color: transparent;
+}
+
+.hijri-calendar-header-month {
+    margin-right: 6px;
+}
+
+.hijri-calendar-today-button {
+    padding: 2px 8px;
+    margin-left: 8px;
+    border-radius: 10px;
+    font-size: 12px;
+    color: rgba(255,255,255,0.75);
+    background-color: rgba(255,255,255,0.08);
+}
+
+.hijri-calendar-today-button:hover,
+.hijri-calendar-today-button:focus {
+    background-color: rgba(255,255,255,0.16);
+    color: rgba(255,255,255,0.95);
+}
+
+.hijri-calendar-picker {
+    margin-bottom: 8px;
+}
+
+.hijri-calendar-picker-grid {
+    margin-top: 2px;
+}
+
+.hijri-calendar-month-button,
+.hijri-calendar-year-button {
+    border-radius: 8px;
+    padding: 4px 6px;
+    margin: 2px;
+    background-color: transparent;
+    color: rgba(255,255,255,0.9);
+    font-weight: 500;
+}
+
+.hijri-calendar-month-button:hover,
+.hijri-calendar-year-button:hover {
+    background-color: rgba(255,255,255,0.12);
+}
+
+.hijri-calendar-month-button.selected,
+.hijri-calendar-year-button.selected {
+    background-color: rgba(255,255,255,0.22);
+    color: #fff;
+    font-weight: 600;
+}
+
+.hijri-calendar-weekday {
+    font-weight: bold;
+    text-align: center;
+    margin: 4px;
+    padding: 3px 6px;
+    border-radius: 8px;
+}
+
+.hijri-calendar-grid {
+    margin-top: 2px;
+}
+
+.hijri-calendar-day {
+    border-radius: 999px;
+    height: 3em;
+    width: 3em;
+    margin: 2px;
+    padding: 0;
+    color: rgba(255,255,255,0.95);
+    font-weight: bold;
+    text-align: center;
+}
+
+.hijri-calendar-day.other-month {
+    color: rgba(255,255,255,0.4);
+    font-weight: normal;
+}
+
+.hijri-calendar-day.today {
+    background-color: -st-accent-color;
+    color: -st-accent-fg-color;
+    font-weight: 700;
+    border-radius: 999px;
 }
