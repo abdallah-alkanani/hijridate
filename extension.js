@@ -6,7 +6,6 @@ const St       = imports.gi.St;
 const GObject  = imports.gi.GObject;
 const Clutter  = imports.gi.Clutter;
 const GLib     = imports.gi.GLib;
-const Gio      = imports.gi.Gio;
 
 const Main       = imports.ui.main;
 const PanelMenu  = imports.ui.panelMenu;

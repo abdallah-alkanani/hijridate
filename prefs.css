@@ -3,23 +3,23 @@
 /* ──────────────────────────────────────────────────────────
    Helper classes
 ─────────────────────────────────────────────────────────── */
-.no-row-hover,
-.no-row-hover:hover,
-.no-row-hover:selected,
-.no-row-hover:focus {
+.hijri-prefs .no-row-hover,
+.hijri-prefs .no-row-hover:hover,
+.hijri-prefs .no-row-hover:selected,
+.hijri-prefs .no-row-hover:focus {
     background-color: transparent;
 }
 
 /* ──────────────────────────────────────────────────────────
    Segmented controls
 ─────────────────────────────────────────────────────────── */
-.linked {
+.hijri-prefs .linked {
     background-color: rgba(255,255,255,0.08);
     border-radius: 10px;
     padding: 4px;
 }
 
-.option-button {
+.hijri-prefs .option-button {
     background: transparent;
     color: inherit; /* use theme fg color */
     padding: 4px 18px;
@@ -27,14 +27,14 @@
     transition: background-color 120ms, box-shadow 120ms, color 120ms;
 }
 
-.option-button:hover:not(:active) {
+.hijri-prefs .option-button:hover:not(:active) {
     /* subtle, readable on light or dark */
     background-color: rgba(0,0,0,0.06);
     text-decoration: underline;
 }
 
-.option-button:active,
-.option-button.active {
+.hijri-prefs .option-button:active,
+.hijri-prefs .option-button.active {
     /* neutral highlight; readable on both themes */
     background-color: rgba(0,0,0,0.14);
     color: inherit;
@@ -44,15 +44,15 @@
 /* ──────────────────────────────────────────────────────────
    Format validation
 ─────────────────────────────────────────────────────────── */
-.error entry { 
+.hijri-prefs .error entry { 
     border-color: #f66151; 
 }
 
-.valid entry { 
+.hijri-prefs .valid entry { 
     border-color: rgba(53,132,228,.7); 
 }
 
-.format-help-text {
+.hijri-prefs .format-help-text {
     font-size: 0.75em;
     opacity: 0.7; 
 }
@@ -60,37 +60,37 @@
 /* ──────────────────────────────────────────────────────────
    Compact preferences layout
 ─────────────────────────────────────────────────────────── */
-.compact-page .adw-preferences-group {
+.hijri-prefs .compact-page .adw-preferences-group {
     margin-bottom: 6px !important;
 }
 
-.compact-page .adw-action-row,
-.compact-page .adw-expander-row {
+.hijri-prefs .compact-page .adw-action-row,
+.hijri-prefs .compact-page .adw-expander-row {
     min-height: 32px !important;
     padding: 2px 8px !important;
 }
 
-.compact-page .adw-preferences-group > box {
+.hijri-prefs .compact-page .adw-preferences-group > box {
     padding: 6px !important;
     margin: 2px !important;
 }
 
-.compact-page entry {
+.hijri-prefs .compact-page entry {
     min-height: 24px !important;
     padding: 2px 6px !important;
 }
 
-.compact-page switch {
+.hijri-prefs .compact-page switch {
     min-height: 16px !important;
     min-width: 32px !important;
 }
 
-.compact-page .linked {
+.hijri-prefs .compact-page .linked {
     padding: 2px !important;
     border-radius: 6px !important;
 }
 
-.compact-page .option-button {
+.hijri-prefs .compact-page .option-button {
     padding: 2px 10px !important;
     font-size: 0.9em !important;
 }
@@ -98,21 +98,21 @@
 /* ──────────────────────────────────────────────────────────
    Year toggle switch
 ─────────────────────────────────────────────────────────── */
-.year-toggle-switch { 
+.hijri-prefs .year-toggle-switch { 
     margin-right: 8px; 
 }
 
 /* ──────────────────────────────────────────────────────────
    Reset button
 ─────────────────────────────────────────────────────────── */
-.reset-btn {
+.hijri-prefs .reset-btn {
     padding: 4px;
 }
 
 /* ──────────────────────────────────────────────────────────
    Hex entry error state
 ─────────────────────────────────────────────────────────── */
-.error-state {
+.hijri-prefs .error-state {
     background-color: rgba(255, 0, 0, 0.15);
     border-color: #ff3030;
     color: #ffffff;

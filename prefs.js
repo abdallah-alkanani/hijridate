@@ -7,7 +7,6 @@ const Gtk     = imports.gi.Gtk;
 const Gio     = imports.gi.Gio;
 const GObject = imports.gi.GObject;
 const Gdk     = imports.gi.Gdk;
-const GLib    = imports.gi.GLib;
 
 const Config  = imports.misc.config;
 const SHELL_MAJOR = parseInt(Config.PACKAGE_VERSION.split('.')[0]);
@@ -95,6 +94,7 @@ class ColorWheel extends Gtk.DrawingArea {
             valign: Gtk.Align.CENTER,
         });
 
+        _setAccessibleName(this, _('Text color'));
         this.onChange = onChange;
         this.currentColor = initialColor || '#ffffff';
         this._isDragging = false;
@@ -384,6 +384,22 @@ function _tr(raw) {
     return Object.fromEntries(Object.entries(raw).map(([k, v]) => [k, _(v)]));
 }
 
+function _setAccessibleName(widget, name) {
+    if (!widget || !name)
+        return;
+
+    if (typeof widget.set_accessible_name === 'function') {
+        widget.set_accessible_name(name);
+        return;
+    }
+
+    try {
+        widget.set_property('accessible-name', name);
+    } catch (e) {
+        /* accessible-name is not available on older GTK versions */
+    }
+}
+
 function _buildSharedUI(container, settings, mode = 'all') {
     const includeGeneral = mode !== 'appearance';
     const includeAppearance = mode !== 'general';
@@ -501,13 +517,14 @@ function _buildSharedUI(container, settings, mode = 'all') {
             text: settings.get_string('date-format'),
             hexpand: true,
         });
+        _setAccessibleName(fmtEntry, fmtLabel.label);
         fmtEntry.placeholder_text = _('{day} {month} {year} {suffix}');
         hBox.append(fmtEntry);
 
         const resetBtn = new Gtk.Button({
             css_classes: ['reset-btn', 'flat'],
-            tooltip_text: _('Reset'),
         });
+        _setAccessibleName(resetBtn, _('Reset'));
         resetBtn.set_child(Gtk.Image.new_from_icon_name('view-refresh-symbolic'));
         hBox.append(resetBtn);
 
@@ -581,6 +598,8 @@ function _buildSharedUI(container, settings, mode = 'all') {
             can_focus: true,
             css_classes: ['option-button'],
         });
+        _setAccessibleName(minusBtn, _('Decrease date offset'));
+        _setAccessibleName(plusBtn, _('Increase date offset'));
 
         adjustBox.append(minusBtn);
         adjustBox.append(plusBtn);
@@ -720,6 +739,7 @@ function _buildSharedUI(container, settings, mode = 'all') {
             draw_value: false,
             hexpand: true,
         });
+        _setAccessibleName(brightnessScale, brightnessLabel.label);
         brightnessScale.connect('value-changed', () => colorWheel.setValue(brightnessScale.get_value()));
         brightnessBox.append(brightnessLabel);
         brightnessBox.append(brightnessScale);
@@ -732,6 +752,7 @@ function _buildSharedUI(container, settings, mode = 'all') {
             max_length: 7,
             width_chars: 8,
         });
+        _setAccessibleName(hexEntry, hexLabel.label);
 
         hexEntry.connect('changed', () => {
             let hex = hexEntry.get_text().trim();
@@ -790,6 +811,7 @@ function _buildSharedUI(container, settings, mode = 'all') {
             draw_value: false,
             hexpand: true,
         });
+        _setAccessibleName(brightnessScale, brightnessLabel.label);
         brightnessScale.connect('value-changed', () => colorWheel.setValue(brightnessScale.get_value()));
         brightnessBox.append(brightnessLabel);
         brightnessBox.append(brightnessScale);
@@ -802,6 +824,7 @@ function _buildSharedUI(container, settings, mode = 'all') {
             max_length: 7,
             width_chars: 8,
         });
+        _setAccessibleName(hexEntry, hexLabel.label);
 
         hexEntry.connect('changed', () => {
             let hex = hexEntry.get_text().trim();
@@ -886,6 +909,7 @@ function buildPrefsWidget() {
         spacing: 12,
         margin_top: 12, margin_bottom: 12, margin_start: 12, margin_end: 12,
     });
+    root.add_css_class('hijri-prefs');
 
     /* A simple container with the same rows/groups */
     const container = {
