@@ -800,6 +800,11 @@ class HijriDateButton extends PanelMenu.Button {
                 .replace(/[\u0647\u0640]/g, '')
                 .replace(/\s+/g, ' ')
                 .trim();
+        } else if (this._extension._language === Language.ENGLISH) {
+            yearText = yearText
+                .replace(/\s*AH\b/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
         }
         this._calendarYearLabel.set_text(yearText);
 
