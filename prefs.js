@@ -32,6 +32,7 @@ try { ExtensionUtils.initTranslations(Me.metadata['gettext-domain']); } catch (e
 const Position = { FAR_LEFT: 0, LEFT: 1, CENTER: 2, RIGHT: 3, FAR_RIGHT: 4 };
 const Language = { ENGLISH: 0, ARABIC: 1 };
 const NumberLanguage = { ENGLISH: 0, ARABIC: 1 };
+const CalendarMethod = { UMM_AL_QURA: 0, CIVIL: 1, TABULAR: 2, ISLAMIC: 3, RGSA: 4 };
 const YearSuffixStyle = { AH: 0, HEH: 1 };
 
 const PositionTextRAW = {
@@ -48,6 +49,13 @@ const LanguageTextRAW = {
 const NumberLanguageTextRAW = {
     [NumberLanguage.ENGLISH]: 'English',
     [NumberLanguage.ARABIC] : 'Arabic',
+};
+const CalendarMethodTextRAW = {
+    [CalendarMethod.UMM_AL_QURA]: 'Umm al-Qura (Saudi)',
+    [CalendarMethod.CIVIL]      : 'Islamic (civil)',
+    [CalendarMethod.TABULAR]    : 'Islamic (tabular)',
+    [CalendarMethod.ISLAMIC]    : 'Islamic (observational)',
+    [CalendarMethod.RGSA]       : 'Islamic (Saudi, regional)',
 };
 const YearSuffixStyleTextRAW = {
     [YearSuffixStyle.AH] : 'AH',
@@ -270,9 +278,10 @@ const SegmentedRow = class {
                 spacing: 2,
                 css_classes: ['linked'],
                 hexpand: false,
+                halign: Gtk.Align.END,
             });
-            this.row.add_prefix(box);
             this.row.add_prefix(titleLbl);
+            this.row.add_suffix(box);
 
             this._buttons = Object.entries(textMap).map(([key, label]) => {
                 const idx = Number(key);
@@ -343,15 +352,47 @@ function _loadStylesheet() {
     }
 }
 
+let _styleSignal = 0;
+function _applyColorSchemeClass(window) {
+    if (!Adw)
+        return;
+
+    const sm = Adw.StyleManager.get_default();
+
+    const apply = () => {
+        window.remove_css_class('is-dark');
+        window.remove_css_class('is-light');
+        window.add_css_class(sm.dark ? 'is-dark' : 'is-light');
+    };
+
+    apply();
+
+    if (_styleSignal)
+        sm.disconnect(_styleSignal);
+    _styleSignal = sm.connect('notify::dark', apply);
+
+    window.connect('close-request', () => {
+        if (_styleSignal) {
+            sm.disconnect(_styleSignal);
+            _styleSignal = 0;
+        }
+        return false;
+    });
+}
+
 function _tr(raw) {
     return Object.fromEntries(Object.entries(raw).map(([k, v]) => [k, _(v)]));
 }
 
-function _buildSharedUI(container, settings) {
+function _buildSharedUI(container, settings, mode = 'all') {
+    const includeGeneral = mode !== 'appearance';
+    const includeAppearance = mode !== 'general';
+
     /* Language group */
     const PositionText        = _tr(PositionTextRAW);
     const LanguageText        = _tr(LanguageTextRAW);
     const NumberLanguageText  = _tr(NumberLanguageTextRAW);
+    const CalendarMethodText  = _tr(CalendarMethodTextRAW);
     const YearSuffixStyleText = _tr(YearSuffixStyleTextRAW);
 
     const groupAdd = (title) => {
@@ -369,138 +410,268 @@ function _buildSharedUI(container, settings) {
         }
     };
 
-    /* Language */
-    const languageGroup = groupAdd(_('Language'));
-    languageGroup.add(new SegmentedRow(
-        _('Language'), LanguageText,
-        settings.get_int('language'),
-        idx => settings.set_int('language', idx)
-    ).row);
+    if (includeGeneral) {
+        /* Language */
+        const languageGroup = groupAdd(_('Language'));
+        languageGroup.add(new SegmentedRow(
+            _('Language'), LanguageText,
+            settings.get_int('language'),
+            idx => settings.set_int('language', idx)
+        ).row);
 
-    languageGroup.add(new SegmentedRow(
-        _('Number Language'), NumberLanguageText,
-        settings.get_int('number-language'),
-        idx => settings.set_int('number-language', idx)
-    ).row);
+        languageGroup.add(new SegmentedRow(
+            _('Week Language'), LanguageText,
+            settings.get_int('week-language'),
+            idx => settings.set_int('week-language', idx)
+        ).row);
 
-    /* Format group */
-    const formatGroup = groupAdd(_('Format'));
-
-    /* Date format row */
-    const fmtRow = Adw ? new Adw.ActionRow({ activatable: false, selectable: false })
-                       : new Gtk.Box({ orientation: Gtk.Orientation.HORIZONTAL, spacing: 6, hexpand: true });
-    if (Adw) fmtRow.add_css_class('no-row-hover');
-
-    const fmtLabel = new Gtk.Label({
-        label: _('Date Format'),
-        xalign: 0,
-        halign: Gtk.Align.START,
-        valign: Gtk.Align.CENTER,
-    });
-
-    const vBox = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 2 });
-    const hBox = new Gtk.Box({ spacing: 4 });
-
-    const fmtEntry = new Gtk.Entry({
-        text: settings.get_string('date-format'),
-        hexpand: true,
-    });
-    fmtEntry.placeholder_text = _('{day} {month} {year} {suffix}');
-    hBox.append(fmtEntry);
-
-    const resetBtn = new Gtk.Button({
-        css_classes: ['reset-btn', 'flat'],
-        tooltip_text: _('Reset'),
-    });
-    resetBtn.set_child(Gtk.Image.new_from_icon_name('view-refresh-symbolic'));
-    hBox.append(resetBtn);
-
-    vBox.append(hBox);
-
-    const note = new Gtk.Label({
-        label: _('Note: When language is Arabic, order of tokens is reversed'),
-        halign: Gtk.Align.START,
-        wrap: true,
-        css_classes: ['format-help-text'],
-    });
-    vBox.append(note);
-
-    if (Adw) {
-        fmtRow.add_prefix(vBox);
-        fmtRow.add_prefix(fmtLabel);
-    } else {
-        const left = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 2, hexpand: true });
-        left.append(fmtLabel);
-        left.append(note);
-        fmtRow.append(left);
-        fmtRow.append(vBox);
-    }
-
-    formatGroup.add(fmtRow);
-
-    const commit = txt => settings.set_string('date-format', txt.trim());
-    const validate = () => {
-        const txt = fmtEntry.text.trim();
-        const ok  = /{day}|{month}|{year}|{suffix}/.test(txt);
-
-        if (ok) commit(txt);
+        languageGroup.add(new SegmentedRow(
+            _('Number Language'), NumberLanguageText,
+            settings.get_int('number-language'),
+            idx => settings.set_int('number-language', idx)
+        ).row);
 
         if (Adw) {
-            fmtRow.remove_css_class(ok ? 'error' : 'valid');
-            fmtRow.add_css_class(ok ? 'valid' : 'error');
+            const calendarMethodList = new Gtk.StringList();
+            [
+                CalendarMethodText[CalendarMethod.UMM_AL_QURA],
+                CalendarMethodText[CalendarMethod.CIVIL],
+                CalendarMethodText[CalendarMethod.TABULAR],
+                CalendarMethodText[CalendarMethod.ISLAMIC],
+                CalendarMethodText[CalendarMethod.RGSA],
+            ].forEach(label => calendarMethodList.append(label));
+
+            const calendarMethodRow = new Adw.ComboRow({
+                title: _('Calendar Method'),
+                subtitle: _('Choose how Hijri months are calculated'),
+                model: calendarMethodList,
+                selected: settings.get_int('calendar-method'),
+            });
+            calendarMethodRow.connect('notify::selected', () => {
+                settings.set_int('calendar-method', calendarMethodRow.selected);
+            });
+            languageGroup.add(calendarMethodRow);
         } else {
-            /* fallback: entry css */
-            fmtEntry.remove_css_class(ok ? 'error' : 'valid');
-            fmtEntry.add_css_class(ok ? 'valid' : 'error');
+            const calRow = new Gtk.Box({
+                orientation: Gtk.Orientation.HORIZONTAL,
+                spacing: 6,
+                hexpand: true,
+            });
+            calRow.append(new Gtk.Label({
+                label: _('Calendar Method'),
+                xalign: 0,
+                hexpand: true,
+            }));
+
+            const calCombo = new Gtk.ComboBoxText({ halign: Gtk.Align.END });
+            [
+                CalendarMethodText[CalendarMethod.UMM_AL_QURA],
+                CalendarMethodText[CalendarMethod.CIVIL],
+                CalendarMethodText[CalendarMethod.TABULAR],
+                CalendarMethodText[CalendarMethod.ISLAMIC],
+                CalendarMethodText[CalendarMethod.RGSA],
+            ].forEach(label => calCombo.append_text(label));
+            calCombo.set_active(settings.get_int('calendar-method'));
+            calCombo.connect('changed', () => {
+                settings.set_int('calendar-method', calCombo.get_active());
+            });
+            calRow.append(calCombo);
+            languageGroup.add(calRow);
         }
-    };
-    fmtEntry.connect('changed', validate);
-    validate();
 
-    resetBtn.connect('clicked', () =>
-        fmtEntry.text = '{day} {month} {year} {suffix}'
-    );
+        /* Format group */
+        const formatGroup = groupAdd(_('Format'));
 
-    formatGroup.add(new SegmentedRow(
-        _('Position'), PositionText,
-        settings.get_int('position'),
-        idx => settings.set_int('position', idx)
-    ).row);
+        /* Date format row */
+        const fmtRow = Adw ? new Adw.ActionRow({ activatable: false, selectable: false })
+                           : new Gtk.Box({ orientation: Gtk.Orientation.HORIZONTAL, spacing: 6, hexpand: true });
+        if (Adw) fmtRow.add_css_class('no-row-hover');
 
-    /* Show year + suffix style */
-    const yearSwitch = new Gtk.Switch({
-        active: settings.get_boolean('show-year'),
-        valign: Gtk.Align.CENTER,
-        css_classes: ['year-toggle-switch'],
-    });
+        const fmtLabel = new Gtk.Label({
+            label: _('Date Format'),
+            xalign: 0,
+            halign: Gtk.Align.START,
+            valign: Gtk.Align.CENTER,
+        });
 
-    if (Adw) {
-        const showYearRow = new Adw.ActionRow({ title: _('Show Year'), activatable: true });
-        showYearRow.add_suffix(yearSwitch);
-        settings.bind('show-year', yearSwitch, 'active', Gio.SettingsBindFlags.DEFAULT);
-        formatGroup.add(showYearRow);
-    } else {
-        const row = new Gtk.Box({ orientation: Gtk.Orientation.HORIZONTAL, spacing: 6 });
-        row.append(new Gtk.Label({ label: _('Show Year'), xalign: 0, hexpand: true }));
-        row.append(yearSwitch);
-        /* manual bind for GTK-only fallback */
-        yearSwitch.connect('notify::active', () => settings.set_boolean('show-year', yearSwitch.active));
-        formatGroup.add(row);
+        const vBox = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 2 });
+        const hBox = new Gtk.Box({ spacing: 4 });
+
+        const fmtEntry = new Gtk.Entry({
+            text: settings.get_string('date-format'),
+            hexpand: true,
+        });
+        fmtEntry.placeholder_text = _('{day} {month} {year} {suffix}');
+        hBox.append(fmtEntry);
+
+        const resetBtn = new Gtk.Button({
+            css_classes: ['reset-btn', 'flat'],
+            tooltip_text: _('Reset'),
+        });
+        resetBtn.set_child(Gtk.Image.new_from_icon_name('view-refresh-symbolic'));
+        hBox.append(resetBtn);
+
+        vBox.append(hBox);
+
+        const note = new Gtk.Label({
+            label: _('Note: When language is Arabic, order of tokens is reversed'),
+            halign: Gtk.Align.START,
+            wrap: true,
+            css_classes: ['format-help-text'],
+        });
+        vBox.append(note);
+
+        if (Adw) {
+            fmtRow.add_prefix(vBox);
+            fmtRow.add_prefix(fmtLabel);
+        } else {
+            const left = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 2, hexpand: true });
+            left.append(fmtLabel);
+            left.append(note);
+            fmtRow.append(left);
+            fmtRow.append(vBox);
+        }
+
+        formatGroup.add(fmtRow);
+
+        const commit = txt => settings.set_string('date-format', txt.trim());
+        const validate = () => {
+            const txt = fmtEntry.text.trim();
+            const ok  = /{day}|{month}|{year}|{suffix}/.test(txt);
+
+            if (ok) commit(txt);
+
+            if (Adw) {
+                fmtRow.remove_css_class(ok ? 'error' : 'valid');
+                fmtRow.add_css_class(ok ? 'valid' : 'error');
+            } else {
+                /* fallback: entry css */
+                fmtEntry.remove_css_class(ok ? 'error' : 'valid');
+                fmtEntry.add_css_class(ok ? 'valid' : 'error');
+            }
+        };
+        fmtEntry.connect('changed', validate);
+        validate();
+
+        resetBtn.connect('clicked', () =>
+            fmtEntry.text = '{day} {month} {year} {suffix}'
+        );
+
+        const offsetRow = Adw ? new Adw.ActionRow({
+            title: _('Hijri Date Adjustment'),
+            activatable: false,
+            selectable: false,
+        }) : new Gtk.Box({ orientation: Gtk.Orientation.HORIZONTAL, spacing: 6, hexpand: true });
+        if (Adw) offsetRow.add_css_class('no-row-hover');
+
+        const adjustBox = new Gtk.Box({
+            orientation: Gtk.Orientation.HORIZONTAL,
+            spacing: 0,
+            css_classes: ['linked'],
+            halign: Gtk.Align.END,
+        });
+
+        const minusBtn = new Gtk.Button({
+            label: '-',
+            can_focus: true,
+            css_classes: ['option-button'],
+        });
+        const plusBtn = new Gtk.Button({
+            label: '+',
+            can_focus: true,
+            css_classes: ['option-button'],
+        });
+
+        adjustBox.append(minusBtn);
+        adjustBox.append(plusBtn);
+
+        const offsetValue = new Gtk.Label({
+            xalign: 1,
+            valign: Gtk.Align.CENTER,
+        });
+
+        const formatOffsetLabel = value => {
+            if (value === 0)
+                return '0';
+            return value > 0 ? `+${value}` : `${value}`;
+        };
+
+        const updateOffsetLabel = () => {
+            offsetValue.label = formatOffsetLabel(settings.get_int('date-offset'));
+        };
+
+        const adjustOffset = delta => {
+            const next = settings.get_int('date-offset') + delta;
+            settings.set_int('date-offset', next);
+            updateOffsetLabel();
+        };
+
+        minusBtn.connect('clicked', () => adjustOffset(-1));
+        plusBtn.connect('clicked', () => adjustOffset(1));
+        settings.connect('changed::date-offset', updateOffsetLabel);
+        updateOffsetLabel();
+
+        const offsetBox = new Gtk.Box({
+            orientation: Gtk.Orientation.HORIZONTAL,
+            spacing: 8,
+            halign: Gtk.Align.END,
+        });
+        offsetBox.append(adjustBox);
+        offsetBox.append(offsetValue);
+
+        if (Adw) {
+            offsetRow.add_suffix(offsetBox);
+            formatGroup.add(offsetRow);
+        } else {
+            offsetRow.append(new Gtk.Label({ label: _('Hijri Date Adjustment'), xalign: 0, hexpand: true }));
+            offsetRow.append(offsetBox);
+            formatGroup.add(offsetRow);
+        }
+
+        formatGroup.add(new SegmentedRow(
+            _('Position'), PositionText,
+            settings.get_int('position'),
+            idx => settings.set_int('position', idx)
+        ).row);
+
+        /* Show year + suffix style */
+        const yearSwitch = new Gtk.Switch({
+            active: settings.get_boolean('show-year'),
+            valign: Gtk.Align.CENTER,
+            css_classes: ['year-toggle-switch'],
+        });
+
+        if (Adw) {
+            const showYearRow = new Adw.ActionRow({ title: _('Show Year'), activatable: true });
+            showYearRow.add_suffix(yearSwitch);
+            settings.bind('show-year', yearSwitch, 'active', Gio.SettingsBindFlags.DEFAULT);
+            formatGroup.add(showYearRow);
+        } else {
+            const row = new Gtk.Box({ orientation: Gtk.Orientation.HORIZONTAL, spacing: 6 });
+            row.append(new Gtk.Label({ label: _('Show Year'), xalign: 0, hexpand: true }));
+            row.append(yearSwitch);
+            /* manual bind for GTK-only fallback */
+            yearSwitch.connect('notify::active', () => settings.set_boolean('show-year', yearSwitch.active));
+            formatGroup.add(row);
+        }
+
+        const yearSuffixRow = new SegmentedRow(
+            _('Year Suffix Style'), YearSuffixStyleText,
+            settings.get_int('year-suffix-style'),
+            idx => settings.set_int('year-suffix-style', idx)
+        );
+        formatGroup.add(yearSuffixRow.row);
+
+        const toggleSuffixSensitivity = () => {
+            const enabled = settings.get_boolean('show-year');
+            yearSuffixRow._buttons.forEach(btn => (btn.sensitive = enabled));
+        };
+        yearSwitch.connect('notify::active', toggleSuffixSensitivity);
+        toggleSuffixSensitivity();
     }
 
-    const yearSuffixRow = new SegmentedRow(
-        _('Year Suffix Style'), YearSuffixStyleText,
-        settings.get_int('year-suffix-style'),
-        idx => settings.set_int('year-suffix-style', idx)
-    );
-    formatGroup.add(yearSuffixRow.row);
-
-    const toggleSuffixSensitivity = () => {
-        const enabled = settings.get_boolean('show-year');
-        yearSuffixRow._buttons.forEach(btn => (btn.sensitive = enabled));
-    };
-    yearSwitch.connect('notify::active', toggleSuffixSensitivity);
-    toggleSuffixSensitivity();
+    if (!includeAppearance)
+        return;
 
     /* Appearance / Color group */
     const addToAppearance = (row) => {
@@ -681,6 +852,9 @@ function fillPreferencesWindow(window) {
         return;
     }
 
+    window.add_css_class('hijri-prefs');
+    _applyColorSchemeClass(window);
+
     /* Two pages like your original file */
     const generalPage = new Adw.PreferencesPage({
         title: _('General Settings'),
@@ -697,10 +871,8 @@ function fillPreferencesWindow(window) {
     window.add(appearancePage);
 
     /* Build groups/rows into pages */
-    _buildSharedUI(generalPage, settings);
-
-    /* Appearance groups will be attached by helper using .add() on appearancePage */
-    _buildSharedUI(appearancePage, settings);
+    _buildSharedUI(generalPage, settings, 'general');
+    _buildSharedUI(appearancePage, settings, 'appearance');
 }
 
 /* ── 40–41 API ────────────────────────────────────────── */
@@ -734,4 +906,3 @@ function buildPrefsWidget() {
 function init() {
     try { ExtensionUtils.initTranslations(); } catch (e) {}
 }
-
