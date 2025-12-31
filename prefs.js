@@ -13,7 +13,7 @@ const SHELL_MAJOR = parseInt(Config.PACKAGE_VERSION.split('.')[0]);
 
 let Adw = null;
 if (SHELL_MAJOR >= 42) {
-    try { Adw = imports.gi.Adw; } catch (e) {}
+    Adw = imports.gi.Adw;
 }
 
 const ExtensionUtils = imports.misc.extensionUtils;
@@ -24,7 +24,7 @@ const Me = ExtensionUtils.getCurrentExtension();
 const _ = Gettext.domain(Me.metadata['gettext-domain']).gettext;
 
 /* Also initialize translations (harmless if already initialized) */
-try { ExtensionUtils.initTranslations(Me.metadata['gettext-domain']); } catch (e) {}
+ExtensionUtils.initTranslations(Me.metadata['gettext-domain']);
 
 
 /* ── ENUMS ────────────────────────────────────────────── */
@@ -340,23 +340,16 @@ function _loadStylesheet() {
     const dir = ExtensionUtils.getCurrentExtension().path;
     const cssPath = `${dir}/prefs.css`;
     const provider = new Gtk.CssProvider();
-    try {
-        provider.load_from_path(cssPath);
-        Gtk.StyleContext.add_provider_for_display(
-            Gdk.Display.get_default(),
-            provider,
-            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-        );
-    } catch (e) {
-        /* ignore missing css */
-    }
+    provider.load_from_path(cssPath);
+    Gtk.StyleContext.add_provider_for_display(
+        Gdk.Display.get_default(),
+        provider,
+        Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+    );
 }
 
 let _styleSignal = 0;
 function _applyColorSchemeClass(window) {
-    if (!Adw)
-        return;
-
     const sm = Adw.StyleManager.get_default();
 
     const apply = () => {
@@ -388,16 +381,8 @@ function _setAccessibleName(widget, name) {
     if (!widget || !name)
         return;
 
-    if (typeof widget.set_accessible_name === 'function') {
+    if (typeof widget.set_accessible_name === 'function')
         widget.set_accessible_name(name);
-        return;
-    }
-
-    try {
-        widget.set_property('accessible-name', name);
-    } catch (e) {
-        /* accessible-name is not available on older GTK versions */
-    }
 }
 
 function _buildSharedUI(container, settings, mode = 'all') {
@@ -928,5 +913,5 @@ function buildPrefsWidget() {
 
 /* ── init() for translations ──────────────────────────── */
 function init() {
-    try { ExtensionUtils.initTranslations(); } catch (e) {}
+    ExtensionUtils.initTranslations();
 }

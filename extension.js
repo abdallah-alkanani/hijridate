@@ -72,14 +72,10 @@ function buildHijriLocale(lang, calendarMethod) {
 }
 
 function createHijriFormatter(locale, options, fallbackLocale) {
-    try {
-        const fmt = new Intl.DateTimeFormat(locale, options);
-        const calendar = fmt.resolvedOptions().calendar;
-        if (calendar && calendar.startsWith('islamic'))
-            return fmt;
-    } catch (e) {
-        /* fallback to default below */
-    }
+    const fmt = new Intl.DateTimeFormat(locale, options);
+    const calendar = fmt.resolvedOptions().calendar;
+    if (calendar && calendar.startsWith('islamic'))
+        return fmt;
 
     return new Intl.DateTimeFormat(fallbackLocale, options);
 }
@@ -138,50 +134,45 @@ function getHijriDate(
     fmtStr = '{day} {month} {year} {suffix}',
     offsetDays = 0
 ) {
-    try {
-        const d = shiftDateByDays(new Date(), offsetDays);
-        const locale = buildHijriLocale(lang, calMethod);
-        const fallbackLocale = buildHijriLocale(lang, CalendarMethod.UMM_AL_QURA);
-        const numSys = (numLng === NumberLanguage.ARABIC) ? 'arab' : 'latn';
+    const d = shiftDateByDays(new Date(), offsetDays);
+    const locale = buildHijriLocale(lang, calMethod);
+    const fallbackLocale = buildHijriLocale(lang, CalendarMethod.UMM_AL_QURA);
+    const numSys = (numLng === NumberLanguage.ARABIC) ? 'arab' : 'latn';
 
-        const parts = createHijriFormatter(locale, {
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric',
-            numberingSystem: numSys,
-        }, fallbackLocale).formatToParts(d);
+    const parts = createHijriFormatter(locale, {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        numberingSystem: numSys,
+    }, fallbackLocale).formatToParts(d);
 
-        const dict = Object.fromEntries(parts
-            .filter(p => ['day', 'month', 'year'].includes(p.type))
-            .map(p => [p.type, p.value]));
+    const dict = Object.fromEntries(parts
+        .filter(p => ['day', 'month', 'year'].includes(p.type))
+        .map(p => [p.type, p.value]));
 
-        const yearValue = dict.year;
-        let out = fmtStr;
+    const yearValue = dict.year;
+    let out = fmtStr;
 
-        if (dict.day)
-            out = out.replace(/{day}/g, dict.day);
-        if (dict.month)
-            out = out.replace(/{month}/g, dict.month);
+    if (dict.day)
+        out = out.replace(/{day}/g, dict.day);
+    if (dict.month)
+        out = out.replace(/{month}/g, dict.month);
 
-        out = out.replace(/{year}/g, showY ? yearValue : '');
-        const suffixText = showY
-            ? (suff === YearSuffixStyle.HEH ? ' هـ' : ' AH')
-            : '';
-        out = out.replace(/{suffix}/g, suffixText);
+    out = out.replace(/{year}/g, showY ? yearValue : '');
+    const suffixText = showY
+        ? (suff === YearSuffixStyle.HEH ? ' هـ' : ' AH')
+        : '';
+    out = out.replace(/{suffix}/g, suffixText);
 
-        /* collapse spacing/punctuation like the 45+ version */
-        out = out.replace(/\s+/g, ' ')
-                 .replace(/,\s*,+/g, ',')
-                 .replace(/,+/g, ', ')
-                 .replace(/\s*,\s*/g, ', ')
-                 .replace(/^\s+|\s+$|\,+$|\,+\s+$/g, '');
+    /* collapse spacing/punctuation like the 45+ version */
+    out = out.replace(/\s+/g, ' ')
+             .replace(/,\s*,+/g, ',')
+             .replace(/,+/g, ', ')
+             .replace(/\s*,\s*/g, ', ')
+             .replace(/^\s+|\s+$|\,+$|\,+\s+$/g, '');
 
-        const fallbackLabel = _('Hijri Date');
-        return out.trim() || `(${fallbackLabel})`;
-    } catch (e) {
-        logError(e, 'Hijri date build error');
-        return `(${_('Hijri Date')})`;
-    }
+    const fallbackLabel = _('Hijri Date');
+    return out.trim() || `(${fallbackLabel})`;
 }
 
 /* ----- Panel button ------------------------------------------------------- */
@@ -259,8 +250,6 @@ class HijriDateButton extends PanelMenu.Button {
                 }
                 case 'language':
                     this._extension._language = settings.get_int('language');
-                    if (!this._extension._hasWeekLanguageSetting)
-                        this._extension._weekLanguage = this._extension._language;
                     this._updateDate();
                     break;
                 case 'week-language':
@@ -315,12 +304,8 @@ class HijriDateButton extends PanelMenu.Button {
         settingsItem.add_style_class_name('settings-button-item');
 
         settingsItem.connect('activate', () => {
-            try {
-                /* GNOME 40–44 */
-                ExtensionUtils.openPrefs();
-            } catch (e) {
-                logError(e, 'Failed to open preferences');
-            }
+            /* GNOME 40–44 */
+            ExtensionUtils.openPrefs();
             this.menu.close();
         });
 
@@ -471,44 +456,31 @@ class HijriDateButton extends PanelMenu.Button {
     }
 
     _syncHeaderSpacer() {
-        if (!this._calendarHeaderSpacer || !this._calendarTodayButton)
-            return;
         const [, naturalWidth] = this._calendarTodayButton.get_preferred_width(-1);
         let width = naturalWidth;
-        try {
-            const themeNode = this._calendarTodayButton.get_theme_node();
-            width += themeNode.get_margin(St.Side.LEFT) + themeNode.get_margin(St.Side.RIGHT);
-        } catch (e) {
-            /* ignore theme node errors */
-        }
+        const themeNode = this._calendarTodayButton.get_theme_node();
+        width += themeNode.get_margin(St.Side.LEFT) + themeNode.get_margin(St.Side.RIGHT);
         this._calendarHeaderSpacer.set_style(`width: ${Math.max(0, width)}px;`);
     }
 
     _hidePickers() {
-        if (this._monthPickerBox)
-            this._monthPickerBox.visible = false;
-        if (this._yearPickerBox)
-            this._yearPickerBox.visible = false;
+        this._monthPickerBox.visible = false;
+        this._yearPickerBox.visible = false;
     }
 
     _toggleMonthPicker() {
-        if (!this._monthPickerBox)
-            return;
         const nextVisible = !this._monthPickerBox.visible;
         this._monthPickerBox.visible = nextVisible;
-        if (nextVisible && this._yearPickerBox)
+        if (nextVisible)
             this._yearPickerBox.visible = false;
         this._updateCalendar();
     }
 
     _toggleYearPicker() {
-        if (!this._yearPickerBox)
-            return;
         const nextVisible = !this._yearPickerBox.visible;
         this._yearPickerBox.visible = nextVisible;
         if (nextVisible) {
-            if (this._monthPickerBox)
-                this._monthPickerBox.visible = false;
+            this._monthPickerBox.visible = false;
             this._yearPickerBaseYear = Number.isFinite(this._currentHijriYear)
                 ? this._currentHijriYear
                 : 1;
@@ -566,9 +538,6 @@ class HijriDateButton extends PanelMenu.Button {
 
     _getMonthStartDatesForYear(formatters, targetParts) {
         const starts = new Array(12);
-        if (!this._currentMonthStartAdjustedDate)
-            return starts;
-
         starts[targetParts.month - 1] = new Date(this._currentMonthStartAdjustedDate);
 
         let cursor = new Date(this._currentMonthStartAdjustedDate);
@@ -587,9 +556,6 @@ class HijriDateButton extends PanelMenu.Button {
     }
 
     _buildMonthPicker(formatters, targetParts) {
-        if (!this._monthPickerGrid || !this._monthPickerGridLayout)
-            return;
-
         const monthStarts = this._getMonthStartDatesForYear(formatters, targetParts);
         this._monthStartDates = monthStarts;
 
@@ -620,9 +586,6 @@ class HijriDateButton extends PanelMenu.Button {
     }
 
     _renderYearPicker(formatters, selectedYear) {
-        if (!this._yearPickerList)
-            return;
-
         if (!Number.isFinite(this._yearPickerBaseYear))
             this._yearPickerBaseYear = selectedYear;
 
@@ -660,7 +623,7 @@ class HijriDateButton extends PanelMenu.Button {
     }
 
     _onYearPickerScroll(_actor, event) {
-        if (!this._yearPickerBox || !this._yearPickerBox.visible)
+        if (!this._yearPickerBox.visible)
             return Clutter.EVENT_PROPAGATE;
 
         let delta = 0;
@@ -702,8 +665,6 @@ class HijriDateButton extends PanelMenu.Button {
     }
 
     _selectMonth(monthIndex) {
-        if (!this._monthStartDates || !this._monthStartDates[monthIndex])
-            return;
         this._setViewDateFromAdjusted(this._monthStartDates[monthIndex]);
         this._hidePickers();
         this._updateCalendar();
@@ -766,9 +727,6 @@ class HijriDateButton extends PanelMenu.Button {
     }
 
     _updateCalendar() {
-        if (!this._calendarGrid || !this._calendarMonthLabel || !this._calendarYearLabel)
-            return;
-
         const offsetDays = this._extension._dateOffset || 0;
         const baseDate = new Date();
         const viewDate = this._viewDate ? new Date(this._viewDate) : baseDate;
@@ -791,15 +749,11 @@ class HijriDateButton extends PanelMenu.Button {
 
         this._calendarMonthLabel.set_text(formatters.displayMonth.format(adjustedDate));
         let yearText = '';
-        try {
-            const parts = formatters.displayYear.formatToParts(adjustedDate);
-            yearText = parts
-                .filter(part => part.type === 'year')
-                .map(part => part.value)
-                .join('');
-        } catch (e) {
-            yearText = '';
-        }
+        const parts = formatters.displayYear.formatToParts(adjustedDate);
+        yearText = parts
+            .filter(part => part.type === 'year')
+            .map(part => part.value)
+            .join('');
         if (!yearText) {
             yearText = formatters.displayYear.format(adjustedDate)
                 .replace(/\bA\.?H\.?\b/gi, '')
@@ -814,9 +768,9 @@ class HijriDateButton extends PanelMenu.Button {
         this._yearRangeMin = Math.max(1, anchorParts.year - YEAR_RANGE_LIMIT);
         this._yearRangeMax = anchorParts.year + YEAR_RANGE_LIMIT;
 
-        if (this._monthPickerBox && this._monthPickerBox.visible)
+        if (this._monthPickerBox.visible)
             this._buildMonthPicker(formatters, targetParts);
-        if (this._yearPickerBox && this._yearPickerBox.visible)
+        if (this._yearPickerBox.visible)
             this._renderYearPicker(formatters, targetParts.year);
 
         const firstWeekday = firstOfDisplayDate.getDay();
@@ -897,8 +851,7 @@ class HijriDateButton extends PanelMenu.Button {
     }
 
     _updateColor() {
-        if (this.label)
-            this.label.set_style(`color: ${this._extension._textColor};`);
+        this.label.set_style(`color: ${this._extension._textColor};`);
     }
 
     destroy() {
@@ -933,7 +886,6 @@ class Extension40to44 {
         this._textColor      = '#ffffff';
         this._spacer         = null;
         this._settings       = null;
-        this._hasWeekLanguageSetting = false;
         this._centerTimeout  = 0;
     }
 
@@ -943,12 +895,7 @@ class Extension40to44 {
         this._position        = this._settings.get_int('position');
         this._spacing         = this._settings.get_int('spacing');
         this._language        = this._settings.get_int('language');
-        this._hasWeekLanguageSetting =
-            this._settings.settings_schema &&
-            this._settings.settings_schema.has_key('week-language');
-        this._weekLanguage    = this._hasWeekLanguageSetting
-            ? this._settings.get_int('week-language')
-            : this._language;
+        this._weekLanguage    = this._settings.get_int('week-language');
         this._numberLanguage  = this._settings.get_int('number-language');
         this._calendarMethod  = this._settings.get_int('calendar-method');
         this._showYear        = this._settings.get_boolean('show-year');
@@ -1074,9 +1021,6 @@ class Extension40to44 {
     }
 
     _findDateMenuIndex(centerBox) {
-        if (!centerBox)
-            return -1;
-
         for (let i = 0; i < centerBox.get_n_children(); i++) {
             const child = centerBox.get_child_at_index(i);
             if (Main.panel.statusArea.dateMenu &&
@@ -1129,7 +1073,7 @@ class Extension40to44 {
 /* GNOME 40–44 entry points */
 function init(meta) {
     /* will use meta.gettext-domain if present; safe if not */
-    try { ExtensionUtils.initTranslations(); } catch (e) { }
+    ExtensionUtils.initTranslations();
 
     return new Extension40to44();
 }
