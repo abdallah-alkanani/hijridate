@@ -233,7 +233,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
                 this._extension._dateOffset
             ),
             y_align: Clutter.ActorAlign.CENTER,
-            style_class: 'hijri-date-label'
+            style_class: 'clock hijri-date-label'
         });
         this.label_actor = this.label;
 
@@ -244,6 +244,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
         this._updateColor();
 
         this.add_style_class_name('hijri-date-button');
+        this.add_style_class_name('clock-display');
         this.menu.setSourceAlignment(0.5);
 
         this._addCalendar();
