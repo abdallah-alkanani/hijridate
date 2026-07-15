@@ -342,11 +342,12 @@ class HijriDateButtonClass extends PanelMenu.Button {
     }
 
     _addCalendar() {
-        const calendarItem = new PopupMenu.PopupBaseMenuItem({ activate: false });
+        const calendarItem = new PopupMenu.PopupBaseMenuItem({
+            activate: false,
+            reactive: false,
+            can_focus: false,
+        });
         calendarItem.add_style_class_name('hijri-calendar-item');
-        calendarItem.reactive = false;
-        calendarItem.track_hover = false;
-        calendarItem.can_focus = false;
 
         const calendarBox = new St.BoxLayout({
             vertical: true,
