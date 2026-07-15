@@ -236,7 +236,9 @@ class HijriDateButtonClass extends PanelMenu.Button {
         this._addSettingsButton();
 
         this._menuOpenChangedId = this.menu.connect('open-state-changed', (menu, isOpen) => {
-            if (!isOpen)
+            if (isOpen)
+                this._updateCalendarColor();
+            else
                 this._hidePickers();
         });
 
@@ -901,6 +903,8 @@ class HijriDateButtonClass extends PanelMenu.Button {
             /^#[0-9A-Fa-f]{6}$/.test(customColor);
         const weekHeading = this._calendarGrid.get_children().find(actor =>
             actor.has_style_class_name('calendar-day-heading'));
+        if (weekHeading)
+            weekHeading.ensure_style();
         const themeColor = weekHeading
             ? weekHeading.get_theme_node().get_foreground_color().to_string()
             : null;
