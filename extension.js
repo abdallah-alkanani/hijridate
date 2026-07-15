@@ -997,6 +997,8 @@ export default class HijriDateDisplayExtension extends Extension {
 
     enable() {
         this._settings = this.getSettings();
+        this._migrateThemeColorDefaults();
+
         this._position       = this._settings.get_int('position');
         this._centerPosition = this._settings.get_int('center-position');
         this._spacing        = this._settings.get_int('spacing');
@@ -1019,6 +1021,18 @@ export default class HijriDateDisplayExtension extends Extension {
             this._settings.get_boolean('use-theme-calendar-text-color');
 
         this._addToPanel();
+    }
+
+    _migrateThemeColorDefaults() {
+        const schema = this._settings.settings_schema;
+        if (!schema.has_key('use-theme-calendar-text-color') ||
+            !schema.has_key('calendar-text-color'))
+            return;
+
+        const calendarColor = this._settings.get_string('calendar-text-color').toLowerCase();
+        const usesThemeColor = this._settings.get_boolean('use-theme-calendar-text-color');
+        if (!usesThemeColor && ['#fff', '#ffffff'].includes(calendarColor))
+            this._settings.set_boolean('use-theme-calendar-text-color', true);
     }
 
     _addToPanel() {
