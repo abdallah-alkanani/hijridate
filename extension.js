@@ -870,9 +870,11 @@ class HijriDateButtonClass extends PanelMenu.Button {
     }
 
     _updateCalendarColor() {
-        const style = this._extension._useThemeCalendarTextColor
-            ? null
-            : `color: ${this._extension._calendarTextColor};`;
+        const customColor = this._extension._calendarTextColor;
+        const hasCustomColor = /^#[0-9A-Fa-f]{6}$/.test(customColor);
+        const style = !this._extension._useThemeCalendarTextColor && hasCustomColor
+            ? `color: ${customColor};`
+            : null;
         [
             this._calendarHeader,
             this._monthPickerBox,
@@ -943,7 +945,6 @@ class Extension40to44 {
 
     enable() {
         this._settings = ExtensionUtils.getSettings();
-        this._migrateThemeColorDefaults();
 
         this._position        = this._settings.get_int('position');
         if (this._settings.settings_schema.has_key('center-position'))
@@ -964,18 +965,6 @@ class Extension40to44 {
             this._settings.get_boolean('use-theme-calendar-text-color');
 
         this._addToPanel();
-    }
-
-    _migrateThemeColorDefaults() {
-        const schema = this._settings.settings_schema;
-        if (!schema.has_key('use-theme-calendar-text-color') ||
-            !schema.has_key('calendar-text-color'))
-            return;
-
-        const calendarColor = this._settings.get_string('calendar-text-color').toLowerCase();
-        const usesThemeColor = this._settings.get_boolean('use-theme-calendar-text-color');
-        if (!usesThemeColor && ['#fff', '#ffffff'].includes(calendarColor))
-            this._settings.set_boolean('use-theme-calendar-text-color', true);
     }
 
     _addToPanel() {

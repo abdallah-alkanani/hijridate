@@ -775,7 +775,7 @@ function _buildSharedUI(container, settings, mode = 'all') {
         const hexLabel = new Gtk.Label({ label: _('Hex Code:') });
         hexEntry = new Gtk.Entry({
             text: settings.get_string(colorKey),
-            placeholder_text: '#ffffff',
+            placeholder_text: '#rrggbb',
             max_length: 7,
             width_chars: 8,
         });
