@@ -1022,8 +1022,8 @@ class Extension40to44 {
         const queueReorder = () => this._queueCenterReorder();
 
         this._centerBoxSignalIds = [
-            centerBox.connect('child-added', queueReorder),
-            centerBox.connect('child-removed', queueReorder),
+            centerBox.connect('actor-added', queueReorder),
+            centerBox.connect('actor-removed', queueReorder),
         ];
         this._queueCenterReorder();
     }
@@ -1033,7 +1033,6 @@ class Extension40to44 {
             GLib.Source.remove(this._centerReorderId);
             this._centerReorderId = 0;
         }
-
         const centerBox = Main.panel && Main.panel._centerBox;
         if (centerBox) {
             for (const signalId of this._centerBoxSignalIds)
