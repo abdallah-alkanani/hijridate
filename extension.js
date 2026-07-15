@@ -986,7 +986,7 @@ export default class HijriDateDisplayExtension extends Extension {
     _dateOffset     = 0;
     _textColor      = '#ffffff';
     _useThemeTextColor = true;
-    _calendarTextColor = '#ffffff';
+    _calendarTextColor = '#222226';
     _useThemeCalendarTextColor = true;
     _spacer         = null;
     _settings       = null;
