@@ -14,6 +14,7 @@ import {
 
 /* ── ENUMS ────────────────────────────────────────────── */
 const Position = { FAR_LEFT: 0, LEFT: 1, CENTER: 2, RIGHT: 3, FAR_RIGHT: 4 };
+const CenterPosition = { LEFT: 0, MIDDLE_LEFT: 1, RIGHT: 2, MIDDLE_RIGHT: 3 };
 const Language = { ENGLISH: 0, ARABIC: 1 };
 const NumberLanguage = { ENGLISH: 0, ARABIC: 1 };
 const CalendarMethod = { UMM_AL_QURA: 0, CIVIL: 1, TABULAR: 2, ISLAMIC: 3, RGSA: 4 };
@@ -47,9 +48,9 @@ const YearSuffixStyleTextRAW = {
 };
 
 const OptionButton = GObject.registerClass(
-class OptionButton extends Gtk.ToggleButton {
-    _init(label, active) {
-        super._init({
+class OptionButtonClass extends Gtk.ToggleButton {
+    constructor(label, active) {
+        super({
             label,
             active,
             can_focus: true,
@@ -68,9 +69,9 @@ class OptionButton extends Gtk.ToggleButton {
 
 // Continuous Color Wheel Picker
 const ColorWheel = GObject.registerClass(
-class ColorWheel extends Gtk.DrawingArea {
-    _init(initialColor, onChange) {
-        super._init({
+class ColorWheelClass extends Gtk.DrawingArea {
+    constructor(initialColor, onChange) {
+        super({
             width_request: 200,
             height_request: 200,
             halign: Gtk.Align.CENTER,
@@ -246,37 +247,58 @@ class ColorWheel extends Gtk.DrawingArea {
 });
 
 const SegmentedRow = class {
-    constructor(title, textMap, currentIndex, onChange) {
-        this.row = new Adw.ActionRow({ activatable: false, selectable: false });
-        this.row.add_css_class('no-row-hover');
-
-        const titleLbl = new Gtk.Label({
-            label: title,
-            xalign: 0,
-            halign: Gtk.Align.START,
-            valign: Gtk.Align.CENTER,
-        });
-
-        // segmented control container
+    constructor(title, textMap, currentIndex, onChange, subtitle = '') {
         const box = new Gtk.Box({
             orientation: Gtk.Orientation.HORIZONTAL,
             spacing: 2,
             css_classes: ['linked'],
-            hexpand: false,
-            halign: Gtk.Align.END,   // keep it right-aligned in the suffix
+            homogeneous: true,
+            halign: Gtk.Align.END,
         });
 
-        // LEFT: title label stays as prefix
-        this.row.add_prefix(titleLbl);
-
-        // RIGHT: segmented buttons go to suffix (this is the key change)
-        this.row.add_suffix(box);
+        if (subtitle) {
+            this.row = new Adw.ActionRow({
+                activatable: false,
+                selectable: false,
+            });
+            const grid = new Gtk.Grid({
+                column_spacing: 24,
+                row_spacing: 2,
+                hexpand: true,
+            });
+            grid.attach(new Gtk.Label({
+                label: title,
+                xalign: 0,
+                halign: Gtk.Align.START,
+                valign: Gtk.Align.CENTER,
+            }), 0, 0, 1, 1);
+            box.hexpand = true;
+            box.halign = Gtk.Align.FILL;
+            grid.attach(box, 1, 0, 1, 1);
+            grid.attach(new Gtk.Label({
+                label: subtitle,
+                xalign: 0,
+                halign: Gtk.Align.FILL,
+                hexpand: true,
+                wrap: true,
+                max_width_chars: 80,
+                css_classes: ['format-help-text'],
+            }), 1, 1, 1, 1);
+            this.row.add_prefix(grid);
+        } else {
+            this.row = new Adw.ActionRow({
+                title,
+                activatable: false,
+                selectable: false,
+            });
+            this.row.add_suffix(box);
+        }
+        this.row.add_css_class('no-row-hover');
 
         this._buttons = Object.entries(textMap).map(([key, label]) => {
             const idx = Number(key);
             const btn = new OptionButton(label, idx === currentIndex);
-            btn.connect('toggled', () => {
-                if (!btn.active) return;
+            btn.connect('clicked', () => {
                 this._buttons.forEach(b => (b.active = b === btn));
                 onChange(idx);
             });
@@ -299,8 +321,8 @@ export default class HijriDatePreferences extends ExtensionPreferences {
                 provider,
                 Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
             );
-        } catch (_) {
-            
+        } catch (error) {
+            console.warn(`Unable to load Hijri Date preferences stylesheet: ${error.message}`);
         }
     }
      _applyColorSchemeClass(window) {
@@ -403,24 +425,22 @@ export default class HijriDatePreferences extends ExtensionPreferences {
 
         /* ─Date format row─ */
 
-        const fmtRow = new Adw.ActionRow({ activatable: false, selectable: false });
-        fmtRow.add_css_class('no-row-hover');
-
-
-        const fmtLabel = new Gtk.Label({
-            label: _('Date Format'),
-            xalign: 0,
-            halign: Gtk.Align.START,
-            valign: Gtk.Align.CENTER,
+        const fmtRow = new Adw.ActionRow({
+            title: _('Date Format'),
+            activatable: false,
+            selectable: false,
         });
-
-        const vBox = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 2 });
-
-        const hBox = new Gtk.Box({ spacing: 4 });
+        fmtRow.add_css_class('no-row-hover');
+        const formatBox = new Gtk.Box({
+            orientation: Gtk.Orientation.VERTICAL,
+            spacing: 2,
+            halign: Gtk.Align.END,
+        });
+        const hBox = new Gtk.Box({ spacing: 4, halign: Gtk.Align.END });
 
         const fmtEntry = new Gtk.Entry({
             text: settings.get_string('date-format'),
-            hexpand: true,
+            width_chars: 38,
         });
         fmtEntry.placeholder_text = _('{day} {month} {year} {suffix}');
         hBox.append(fmtEntry);
@@ -433,18 +453,17 @@ export default class HijriDatePreferences extends ExtensionPreferences {
         resetBtn.set_child(Gtk.Image.new_from_icon_name('view-refresh-symbolic'));
         hBox.append(resetBtn);
 
-        vBox.append(hBox);
-
         const note = new Gtk.Label({
             label: _('Note: When language is Arabic, order of tokens is reversed'),
+            xalign: 0,
             halign: Gtk.Align.START,
             wrap: true,
+            max_width_chars: 60,
             css_classes: ['format-help-text'],
         });
-        vBox.append(note);
-
-        fmtRow.add_prefix(vBox);   
-        fmtRow.add_prefix(fmtLabel);
+        formatBox.append(hBox);
+        formatBox.append(note);
+        fmtRow.add_suffix(formatBox);
 
         // Create Format group
         const formatGroup = new Adw.PreferencesGroup({ title: _('Format') });
@@ -535,7 +554,25 @@ export default class HijriDatePreferences extends ExtensionPreferences {
         formatGroup.add(new SegmentedRow(
             _('Position'), PositionText,
             settings.get_int('position'),
-            idx => settings.set_int('position', idx)
+            idx => {
+                const previousPosition = settings.get_int('position');
+                if (idx === Position.CENTER) {
+                    let centerPosition = CenterPosition.LEFT;
+                    if (previousPosition === Position.CENTER) {
+                        const currentCenterPosition = settings.get_int('center-position');
+                        centerPosition = [CenterPosition.RIGHT, CenterPosition.MIDDLE_RIGHT]
+                            .includes(currentCenterPosition)
+                            ? CenterPosition.MIDDLE_RIGHT
+                            : CenterPosition.MIDDLE_LEFT;
+                    } else if ([Position.RIGHT, Position.FAR_RIGHT].includes(previousPosition)) {
+                        centerPosition = CenterPosition.RIGHT;
+                    }
+
+                    settings.set_int('center-position', centerPosition);
+                }
+                settings.set_int('position', idx);
+            },
+            _('Note: Right → Center → Center selects middle-right; Left → Center → Center selects middle-left.')
         ).row);
 
         const showYearRow = new Adw.ActionRow({ title: _('Show Year'), activatable: true });

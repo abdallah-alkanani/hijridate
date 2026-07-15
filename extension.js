@@ -42,6 +42,13 @@ const Position = {
     FAR_RIGHT: 4
 };
 
+const CenterPosition = {
+    LEFT: 0,
+    MIDDLE_LEFT: 1,
+    RIGHT: 2,
+    MIDDLE_RIGHT: 3
+};
+
 const DEFAULT_SPACING = 0;
 const YEAR_RANGE_LIMIT = 200;
 
@@ -184,7 +191,7 @@ function getHijriDate(
                  .replace(/,\s*,+/g, ',')
                  .replace(/,+/g, ', ')
                  .replace(/\s*,\s*/g, ', ')
-                 .replace(/^\s+|\s+$|\,+$|\,+\s+$/g, '');
+                 .replace(/^\s+|\s+$|,+$|,+\s+$/g, '');
 
         const fallbackLabel = _('Hijri Date');
         return out.trim() || `(${fallbackLabel})`;
@@ -196,7 +203,7 @@ function getHijriDate(
 
 // HijriDateButton: the panel button + popup menu
 const HijriDateButton = GObject.registerClass(
-class HijriDateButton extends PanelMenu.Button {
+class HijriDateButtonClass extends PanelMenu.Button {
     _init(extension) {
         super._init(0.5, _('Hijri Date'));
         this._extension = extension;
@@ -254,6 +261,9 @@ class HijriDateButton extends PanelMenu.Button {
                     this._extension.setPosition(pos);
                     break;
                 }
+                case 'center-position':
+                    this._extension.setCenterPosition(settings.get_int('center-position'));
+                    break;
                 case 'spacing': {
                     this._extension._spacing = settings.get_int('spacing');
                     if (this._extension._spacer) {
@@ -930,15 +940,14 @@ export default class HijriDateDisplayExtension extends Extension {
     _spacer         = null;
     _settings       = null;
     _hasWeekLanguageSetting = false;
-    _centerTimeout  = 0;
-
-    constructor(metadata) {
-        super(metadata);
-    }
+    _centerPosition = CenterPosition.LEFT;
+    _centerBoxSignalIds = [];
+    _centerReorderId = 0;
 
     enable() {
         this._settings = this.getSettings();
         this._position       = this._settings.get_int('position');
+        this._centerPosition = this._settings.get_int('center-position');
         this._spacing        = this._settings.get_int('spacing');
         this._language       = this._settings.get_int('language');
         this._hasWeekLanguageSetting =
@@ -954,24 +963,12 @@ export default class HijriDateDisplayExtension extends Extension {
         this._dateOffset     = this._settings.get_int('date-offset');
         this._textColor      = this._settings.get_string('text-color');
         
-        // Add a small delay for CENTER position to ensure dateMenu is loaded
-        if (this._position === Position.CENTER) {
-            // Defensive clear in case enable() is called multiple times
-            if (this._centerTimeout) {
-                GLib.Source.remove(this._centerTimeout);
-                this._centerTimeout = 0;
-            }
-            this._centerTimeout = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
-                this._addToPanel();
-                this._centerTimeout = 0;
-                return GLib.SOURCE_REMOVE;
-            });
-        } else {
-            this._addToPanel();
-        }
+        this._addToPanel();
     }
 
     _addToPanel() {
+        this._unwatchCenterBox();
+
         if (this._indicator) {
             this._indicator.destroy();
         }
@@ -992,10 +989,8 @@ export default class HijriDateDisplayExtension extends Extension {
                 break;
             case Position.CENTER:
                 boxName = 'center';
-                // Always position consistently relative to dateMenu
-                const centerBox = Main.panel._centerBox;
-                const dateMenuIndex = this._findDateMenuIndex(centerBox);
-                boxIndex = dateMenuIndex >= 0 ? dateMenuIndex : 0;
+                boxIndex = this._getCenterBoxIndex(
+                    Main.panel._centerBox.get_n_children());
                 break;
             case Position.RIGHT:
                 boxName = 'right';
@@ -1027,6 +1022,9 @@ export default class HijriDateDisplayExtension extends Extension {
             }
             this._addSpacerToPanel(this._spacer);
         }
+
+        if (this._position === Position.CENTER)
+            this._watchCenterBox();
     }
 
     setPosition(position) {
@@ -1039,9 +1037,112 @@ export default class HijriDateDisplayExtension extends Extension {
         this._addToPanel();
     }
 
+    setCenterPosition(position) {
+        if ([CenterPosition.MIDDLE_LEFT, CenterPosition.MIDDLE_RIGHT].includes(position) &&
+            this._position === Position.CENTER &&
+            this._getOtherCenterChildCount() < 2) {
+            this._settings.set_int('center-position', this._centerPosition);
+            return;
+        }
+
+        this._centerPosition = position;
+        if (this._position === Position.CENTER)
+            this._queueCenterReorder();
+    }
+
+    _getCenterBoxIndex(otherChildren) {
+        switch (this._centerPosition) {
+            case CenterPosition.RIGHT:
+                return -1;
+            case CenterPosition.MIDDLE_LEFT:
+                return otherChildren < 2 ? 0 : Math.floor(otherChildren / 2);
+            case CenterPosition.MIDDLE_RIGHT:
+                return otherChildren < 2 ? -1 : Math.ceil(otherChildren / 2);
+            case CenterPosition.LEFT:
+            default:
+                return 0;
+        }
+    }
+
+    _getOtherCenterChildCount() {
+        const centerBox = Main.panel._centerBox;
+        return centerBox.get_children().filter(child =>
+            child !== this._indicator?.container && child !== this._spacer).length;
+    }
+
+    _watchCenterBox() {
+        const centerBox = Main.panel._centerBox;
+        const queueReorder = () => this._queueCenterReorder();
+
+        this._centerBoxSignalIds = [
+            centerBox.connect('child-added', queueReorder),
+            centerBox.connect('child-removed', queueReorder),
+        ];
+        this._queueCenterReorder();
+    }
+
+    _unwatchCenterBox() {
+        if (this._centerReorderId) {
+            GLib.Source.remove(this._centerReorderId);
+            this._centerReorderId = 0;
+        }
+
+        const centerBox = Main.panel?._centerBox;
+        if (centerBox) {
+            for (const signalId of this._centerBoxSignalIds)
+                centerBox.disconnect(signalId);
+        }
+        this._centerBoxSignalIds = [];
+    }
+
+    _queueCenterReorder() {
+        if (this._centerReorderId || this._position !== Position.CENTER)
+            return;
+
+        this._centerReorderId = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+            this._centerReorderId = 0;
+            this._reorderCenterIndicator();
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    _reorderCenterIndicator() {
+        const centerBox = Main.panel._centerBox;
+        const container = this._indicator?.container;
+        if (!container || container.get_parent() !== centerBox)
+            return;
+
+        const children = centerBox.get_children();
+        const currentIndex = children.indexOf(container);
+        if (currentIndex < 0)
+            return;
+
+        const otherChildCount = this._getOtherCenterChildCount();
+        if ([CenterPosition.MIDDLE_LEFT, CenterPosition.MIDDLE_RIGHT]
+            .includes(this._centerPosition) && otherChildCount < 2)
+            return;
+
+        let targetIndex = this._getCenterBoxIndex(otherChildCount);
+        if (targetIndex < 0)
+            targetIndex = otherChildCount;
+
+        const spacerFollowsIndicator = this._spacer?.get_parent() === centerBox &&
+            children[currentIndex + 1] === this._spacer;
+        if (targetIndex === currentIndex &&
+            (!this._spacer?.get_parent() || spacerFollowsIndicator))
+            return;
+
+        if (this._spacer?.get_parent() === centerBox)
+            centerBox.remove_child(this._spacer);
+        centerBox.remove_child(container);
+        centerBox.insert_child_at_index(container, targetIndex);
+        if (this._spacer)
+            centerBox.insert_child_at_index(this._spacer, targetIndex + 1);
+    }
+
     _addSpacerToPanel(spacer) {
         this._spacer = spacer;
-        let box = null;
+        let box;
 
         switch (this._getBoxPosition(this._position)) {
             case 'left':
@@ -1071,20 +1172,6 @@ export default class HijriDateDisplayExtension extends Extension {
         }
     }
 
-    _findDateMenuIndex(centerBox) {
-        // Find the GNOME dateMenu in the center box
-        if (!centerBox) return -1;
-        
-        for (let i = 0; i < centerBox.get_n_children(); i++) {
-            const child = centerBox.get_child_at_index(i);
-            // Check if this is the dateMenu (it usually has the 'dateMenu' property)
-            if (child === Main.panel.statusArea.dateMenu?.container) {
-                return i;
-            }
-        }
-        return -1;
-    }
-
     _getBoxPosition(position) {
         switch (position) {
             case Position.LEFT:
@@ -1101,10 +1188,7 @@ export default class HijriDateDisplayExtension extends Extension {
     }
 
     disable() {
-        if (this._centerTimeout) {
-            GLib.Source.remove(this._centerTimeout);
-            this._centerTimeout = 0;
-        }
+        this._unwatchCenterBox();
         if (this._spacer) {
             if (this._spacer.get_parent())
                 this._spacer.get_parent().remove_child(this._spacer);
