@@ -344,7 +344,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
 
         const calendarBox = new St.BoxLayout({
             vertical: true,
-            style_class: 'hijri-calendar calendar',
+            style_class: 'hijri-calendar calendar popup-menu-item',
             x_expand: true
         });
         calendarItem.add_child(calendarBox);
@@ -406,7 +406,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
         this._calendarHeaderCenterBox.add_child(this._calendarYearButton);
 
         this._calendarTodayButton = new St.Button({
-            label: 'Today 2',
+            label: 'Today 3',
             style_class: 'hijri-calendar-today-button',
             can_focus: true,
             reactive: true,
