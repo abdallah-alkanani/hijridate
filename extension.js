@@ -330,9 +330,6 @@ class HijriDateButtonClass extends PanelMenu.Button {
         });
 
         this.menu.addMenuItem(settingsItem);
-        this._settingsItem = settingsItem;
-        settingsItem.connect('style-changed', () => this._updateCalendarColor());
-        this._updateCalendarColor();
     }
 
     _addCalendar() {
@@ -902,8 +899,10 @@ class HijriDateButtonClass extends PanelMenu.Button {
         const customColor = this._extension._calendarTextColor;
         const usesCustomColor = !this._extension._useThemeCalendarTextColor &&
             /^#[0-9A-Fa-f]{6}$/.test(customColor);
-        const themeColor = this._settingsItem
-            ? this._settingsItem.get_theme_node().get_foreground_color().to_string()
+        const weekHeading = this._calendarGrid.get_children().find(actor =>
+            actor.has_style_class_name('calendar-day-heading'));
+        const themeColor = weekHeading
+            ? weekHeading.get_theme_node().get_foreground_color().to_string()
             : null;
         const color = usesCustomColor ? customColor : themeColor;
         const style = color ? `color: ${color};` : null;
