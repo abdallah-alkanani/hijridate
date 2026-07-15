@@ -345,7 +345,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
 
         const calendarBox = new St.BoxLayout({
             vertical: true,
-            style_class: 'hijri-calendar',
+            style_class: 'hijri-calendar calendar',
             x_expand: true
         });
         calendarItem.add_child(calendarBox);
@@ -366,6 +366,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
             x_expand: true
         });
         this._calendarHeaderCenterBox = new St.BoxLayout({
+            style_class: 'calendar-month-header',
             x_align: Clutter.ActorAlign.CENTER,
             y_align: Clutter.ActorAlign.CENTER
         });
@@ -373,7 +374,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
         this._calendarHeader.add_child(this._calendarHeaderCenter);
 
         this._calendarMonthLabel = new St.Label({
-            style_class: 'hijri-calendar-header',
+            style_class: 'hijri-calendar-header calendar-month-label',
             x_align: Clutter.ActorAlign.CENTER,
             y_align: Clutter.ActorAlign.CENTER
         });
@@ -388,7 +389,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
         this._calendarMonthButton.connect('clicked', () => this._toggleMonthPicker());
 
         this._calendarYearLabel = new St.Label({
-            style_class: 'hijri-calendar-header',
+            style_class: 'hijri-calendar-header calendar-month-label',
             x_align: Clutter.ActorAlign.CENTER,
             y_align: Clutter.ActorAlign.CENTER
         });
@@ -466,7 +467,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
 
         this._calendarGrid = new St.Widget({
             layout_manager: this._calendarGridLayout,
-            style_class: 'hijri-calendar-grid calendar',
+            style_class: 'hijri-calendar-grid',
             x_expand: true
         });
         calendarBox.add_child(this._calendarGrid);
