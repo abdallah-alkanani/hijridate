@@ -40,28 +40,6 @@
     font-weight: 500;
 }
 
-/* Popup menu positioning */
-.popup-menu-below-panel .popup-menu {
-    margin: 0 !important;
-}
-
-.popup-menu-below-panel .popup-menu-content {
-    padding: 8px;
-    transform: translateX(-50%);
-    position: relative;
-    left: 50%;
-}
-
-.popup-menu-below-panel .popup-menu-arrow {
-    position: absolute;
-    top: -12px;
-    left: 50%;
-    transform: translateX(-50%);
-    margin: 0;
-    padding: 0;
-    border: 0;
-}
-
 /* Calendar */
 .hijri-calendar {
     padding: 10px 14px 8px;
