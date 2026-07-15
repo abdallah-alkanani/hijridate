@@ -599,130 +599,137 @@ export default class HijriDatePreferences extends ExtensionPreferences {
         yearSwitch.connect('notify::active', toggleSuffixSensitivity);
         toggleSuffixSensitivity();
         
-        // Color Customization Group in Appearance page
-        const colorGroup = new Adw.PreferencesGroup({ 
-            title: _('Color Customization'),
-            description: _('Personalize the appearance of your Hijri date')
+        const createColorExpander = (title, subtitle, colorKey, useThemeKey) => {
+            const colorExpander = new Adw.ExpanderRow({
+                title,
+                subtitle,
+                show_enable_switch: false,
+                expanded: false,
+            });
+
+            const useThemeRow = new Adw.ActionRow({
+                title: _('Use Theme Color'),
+                subtitle: _('Follow GNOME Shell light and dark theme colors'),
+                activatable: true,
+            });
+            const useThemeSwitch = new Gtk.Switch({
+                active: settings.get_boolean(useThemeKey),
+                valign: Gtk.Align.CENTER,
+            });
+            useThemeRow.add_suffix(useThemeSwitch);
+            settings.bind(useThemeKey, useThemeSwitch, 'active', Gio.SettingsBindFlags.DEFAULT);
+            colorExpander.add_row(useThemeRow);
+
+            const colorContainer = new Gtk.Box({
+                orientation: Gtk.Orientation.VERTICAL,
+                spacing: 8,
+                margin_top: 8,
+                margin_bottom: 8,
+                margin_start: 8,
+                margin_end: 8,
+            });
+
+            let hexEntry;
+            const colorWheel = new ColorWheel(
+                settings.get_string(colorKey),
+                (color) => {
+                    settings.set_string(colorKey, color);
+                    hexEntry.set_text(color);
+                }
+            );
+
+            const brightnessBox = new Gtk.Box({
+                orientation: Gtk.Orientation.VERTICAL,
+                spacing: 4,
+            });
+            const brightnessLabel = new Gtk.Label({
+                label: _('Brightness'),
+                xalign: 0,
+            });
+            const brightnessScale = new Gtk.Scale({
+                orientation: Gtk.Orientation.HORIZONTAL,
+                adjustment: new Gtk.Adjustment({
+                    lower: 0,
+                    upper: 1,
+                    step_increment: 0.01,
+                    value: colorWheel.value,
+                }),
+                draw_value: false,
+                hexpand: true,
+            });
+            brightnessScale.connect('value-changed', () => {
+                colorWheel.setValue(brightnessScale.get_value());
+            });
+            brightnessBox.append(brightnessLabel);
+            brightnessBox.append(brightnessScale);
+
+            const hexBox = new Gtk.Box({
+                orientation: Gtk.Orientation.HORIZONTAL,
+                spacing: 6,
+                halign: Gtk.Align.CENTER,
+            });
+            const hexLabel = new Gtk.Label({ label: _('Hex Code:') });
+            hexEntry = new Gtk.Entry({
+                text: settings.get_string(colorKey),
+                placeholder_text: '#ffffff',
+                max_length: 7,
+                width_chars: 8,
+            });
+            hexEntry.connect('changed', () => {
+                let hex = hexEntry.get_text().trim();
+                if (hex.length > 0 && !hex.startsWith('#'))
+                    hex = '#' + hex;
+
+                const isValid = hex.length === 0 || /^#?[0-9A-Fa-f]{6}$/.test(hex);
+                if (isValid && hex.length > 0) {
+                    if (!hex.startsWith('#'))
+                        hex = '#' + hex;
+                    hex = hex.toLowerCase();
+                    hexEntry.remove_css_class('error-state');
+                    colorWheel.setColor(hex);
+                    settings.set_string(colorKey, hex);
+                } else if (hex.length > 0) {
+                    hexEntry.add_css_class('error-state');
+                } else {
+                    hexEntry.remove_css_class('error-state');
+                }
+            });
+            hexBox.append(hexLabel);
+            hexBox.append(hexEntry);
+
+            colorContainer.append(colorWheel);
+            colorContainer.append(brightnessBox);
+            colorContainer.append(hexBox);
+
+            const colorRow = new Adw.ActionRow();
+            colorRow.set_child(colorContainer);
+            colorExpander.add_row(colorRow);
+
+            const syncSensitivity = () => {
+                colorContainer.sensitive = !settings.get_boolean(useThemeKey);
+            };
+            useThemeSwitch.connect('notify::active', syncSensitivity);
+            syncSensitivity();
+
+            return colorExpander;
+        };
+
+        const colorGroup = new Adw.PreferencesGroup({
+            title: _('Appearance'),
+            description: _('Use GNOME Shell theme colors by default, or choose custom colors')
         });
         appearancePage.add(colorGroup);
-
-        // Color Expander (expanded by default)
-        const colorExpander = new Adw.ExpanderRow({
-            title: _('Text Color Picker'),
-            subtitle: _('Customize the text color'),
-            show_enable_switch: false,
-            expanded: true,  // Always expanded by default
-        });
-
-        const colorContainer = new Gtk.Box({
-            orientation: Gtk.Orientation.VERTICAL,
-            spacing: 8,
-            margin_top: 8,
-            margin_bottom: 8,
-            margin_start: 8,
-            margin_end: 8,
-        });
-
-        this._colorWheel = new ColorWheel(
-            settings.get_string('text-color'),
-            (color) => {
-                settings.set_string('text-color', color);
-                this._hexEntry.set_text(color);
-            }
-        );
-
-        // Brightness controls
-        const brightnessBox = new Gtk.Box({
-            orientation: Gtk.Orientation.VERTICAL,
-            spacing: 4,
-        });
-
-        const brightnessLabel = new Gtk.Label({
-            label: _('Brightness'),
-            xalign: 0,
-        });
-
-        const brightnessScale = new Gtk.Scale({
-            orientation: Gtk.Orientation.HORIZONTAL,
-            adjustment: new Gtk.Adjustment({
-                lower: 0,
-                upper: 1,
-                step_increment: 0.01,
-                value: this._colorWheel.value,
-            }),
-            draw_value: false,
-            hexpand: true,
-        });
-
-        brightnessScale.connect('value-changed', () => {
-            this._colorWheel.setValue(brightnessScale.get_value());
-        });
-
-        brightnessBox.append(brightnessLabel);
-        brightnessBox.append(brightnessScale);
-
-        // Hex input
-        const hexBox = new Gtk.Box({
-            orientation: Gtk.Orientation.HORIZONTAL,
-            spacing: 6,
-            halign: Gtk.Align.CENTER,
-        });
-
-        const hexLabel = new Gtk.Label({
-            label: _('Hex Code:'),
-        });
-
-        this._hexEntry = new Gtk.Entry({
-            text: settings.get_string('text-color'),
-            placeholder_text: '#ffffff',
-            max_length: 7,
-            width_chars: 8,
-        });
-
-        this._hexEntry.connect('changed', () => {
-            let hex = this._hexEntry.get_text().trim();
-            
-            // Add hashtag if missing and not empty
-            if (hex.length > 0 && !hex.startsWith('#')) {
-                hex = '#' + hex;
-            }
-            
-            // Validate hex color (with or without hashtag, case insensitive)
-            const isValid = hex.length === 0 || /^#?[0-9A-Fa-f]{6}$/.test(hex);
-            
-            if (isValid && hex.length > 0) {
-                // Valid input - ensure hashtag is present for storage
-                if (!hex.startsWith('#')) {
-                    hex = '#' + hex;
-                }
-                // Convert to lowercase for consistency
-                hex = hex.toLowerCase();
-                
-                // Remove error state
-                this._hexEntry.remove_css_class('error-state');
-                
-                this._colorWheel.setColor(hex);
-                settings.set_string('text-color', hex);
-            } else if (hex.length > 0) {
-                // Invalid input - persistent red state
-                this._hexEntry.add_css_class('error-state');
-            } else {
-                // Empty input - neutral state
-                this._hexEntry.remove_css_class('error-state');
-            }
-        });
-
-        hexBox.append(hexLabel);
-        hexBox.append(this._hexEntry);
-
-        colorContainer.append(this._colorWheel);
-        colorContainer.append(brightnessBox);
-        colorContainer.append(hexBox);
-
-        const colorRow = new Adw.ActionRow();
-        colorRow.set_child(colorContainer);
-        colorExpander.add_row(colorRow);
-        
-        colorGroup.add(colorExpander);
+        colorGroup.add(createColorExpander(
+            _('Panel Date Color'),
+            _('Color for the Hijri date in the top bar'),
+            'text-color',
+            'use-theme-text-color'
+        ));
+        colorGroup.add(createColorExpander(
+            _('Popup Calendar Text Color'),
+            _('Color for the Hijri calendar popup text'),
+            'calendar-text-color',
+            'use-theme-calendar-text-color'
+        ));
     }
 }
