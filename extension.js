@@ -898,7 +898,8 @@ class Extension40to44 {
         this._settings = ExtensionUtils.getSettings();
 
         this._position        = this._settings.get_int('position');
-        this._centerPosition  = this._settings.get_int('center-position');
+        if (this._settings.settings_schema.has_key('center-position'))
+            this._centerPosition = this._settings.get_int('center-position');
         this._spacing         = this._settings.get_int('spacing');
         this._language        = this._settings.get_int('language');
         this._weekLanguage    = this._settings.get_int('week-language');
@@ -985,7 +986,8 @@ class Extension40to44 {
         if ([CenterPosition.MIDDLE_LEFT, CenterPosition.MIDDLE_RIGHT].includes(position) &&
             this._position === Position.CENTER &&
             this._getOtherCenterChildCount() < 2) {
-            this._settings.set_int('center-position', this._centerPosition);
+            if (this._settings.settings_schema.has_key('center-position'))
+                this._settings.set_int('center-position', this._centerPosition);
             return;
         }
 

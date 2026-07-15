@@ -405,6 +405,7 @@ function _setAccessibleName(widget, name) {
 }
 
 function _buildSharedUI(container, settings, mode = 'all') {
+    const hasCenterPosition = settings.settings_schema.has_key('center-position');
     const includeGeneral = mode !== 'appearance';
     const includeAppearance = mode !== 'general';
 
@@ -666,7 +667,7 @@ function _buildSharedUI(container, settings, mode = 'all') {
             settings.get_int('position'),
             idx => {
                 const previousPosition = settings.get_int('position');
-                if (idx === Position.CENTER) {
+                if (idx === Position.CENTER && hasCenterPosition) {
                     let centerPosition = CenterPosition.LEFT;
                     if (previousPosition === Position.CENTER) {
                         const currentCenterPosition = settings.get_int('center-position');
