@@ -131,8 +131,8 @@
 
 .hijri-calendar-month-button.selected,
 .hijri-calendar-year-button.selected {
-    background-color: -st-accent-color;
-    color: -st-accent-fg-color;
+    /* GNOME 40-44 do not expose the later -st-accent-* CSS values. */
+    background-color: rgba(128,128,128,0.24);
     font-weight: 600;
 }
 
@@ -163,8 +163,6 @@
 }
 
 .hijri-calendar-day.today {
-    background-color: -st-accent-color;
-    color: -st-accent-fg-color;
     font-weight: 700;
     border-radius: 999px;
 }
