@@ -337,18 +337,12 @@ class HijriDateButtonClass extends PanelMenu.Button {
     }
 
     _addCalendar() {
-        const calendarItem = new PopupMenu.PopupBaseMenuItem({ activate: false });
-        calendarItem.add_style_class_name('no-row-hover');
-        calendarItem.reactive = false;
-        calendarItem.track_hover = false;
-        calendarItem.can_focus = false;
-
         const calendarBox = new St.BoxLayout({
             vertical: true,
             style_class: 'hijri-calendar calendar',
             x_expand: true
         });
-        calendarItem.add_child(calendarBox);
+        this.menu.box.add_child(calendarBox);
 
         this._calendarHeader = new St.BoxLayout({
             style_class: 'hijri-calendar-header-row',
@@ -471,8 +465,6 @@ class HijriDateButtonClass extends PanelMenu.Button {
             x_expand: true
         });
         calendarBox.add_child(this._calendarGrid);
-
-        this.menu.addMenuItem(calendarItem);
 
         this._updateCalendar();
         this._updateCalendarColor();
