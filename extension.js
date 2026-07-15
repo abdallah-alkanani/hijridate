@@ -288,6 +288,18 @@ class HijriDateButtonClass extends PanelMenu.Button {
                     this._extension._textColor = settings.get_string('text-color');
                     this._updateColor();
                     break;
+                case 'use-theme-text-color':
+                    this._extension._useThemeTextColor = settings.get_boolean('use-theme-text-color');
+                    this._updateColor();
+                    break;
+                case 'calendar-text-color':
+                    this._extension._calendarTextColor = settings.get_string('calendar-text-color');
+                    this._updateCalendarColor();
+                    break;
+                case 'use-theme-calendar-text-color':
+                    this._extension._useThemeCalendarTextColor = settings.get_boolean('use-theme-calendar-text-color');
+                    this._updateCalendarColor();
+                    break;
             }
         });
 
@@ -457,6 +469,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
         this.menu.addMenuItem(calendarItem);
 
         this._updateCalendar();
+        this._updateCalendarColor();
     }
 
     _syncHeaderSpacer() {
@@ -587,6 +600,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
             const column = isArabic ? (cols - 1) - (i % cols) : (i % cols);
             this._monthPickerGridLayout.attach(button, column, Math.floor(i / cols), 1, 1);
         }
+        this._updateCalendarColor();
     }
 
     _renderYearPicker(formatters, selectedYear) {
@@ -624,6 +638,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
             button.connect('clicked', () => this._selectYear(year));
             this._yearPickerList.add_child(button);
         }
+        this._updateCalendarColor();
     }
 
     _onYearPickerScroll(_actor, event) {
@@ -836,6 +851,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
 
             this._calendarGridLayout.attach(dayButton, i % 7, Math.floor(i / 7) + 1, 1, 1);
         }
+        this._updateCalendarColor();
     }
 
     _updateDate() {
@@ -854,7 +870,37 @@ class HijriDateButtonClass extends PanelMenu.Button {
     }
 
     _updateColor() {
-        this.label.set_style(`color: ${this._extension._textColor};`);
+        const style = this._extension._useThemeTextColor
+            ? ''
+            : `color: ${this._extension._textColor};`;
+        this.label.set_style(style);
+    }
+
+    _updateCalendarColor() {
+        const style = this._extension._useThemeCalendarTextColor
+            ? ''
+            : `color: ${this._extension._calendarTextColor};`;
+        [
+            this._calendarHeader,
+            this._monthPickerBox,
+            this._yearPickerBox,
+            this._calendarGrid,
+        ].forEach(actor => this._applyCalendarTextStyle(actor, style));
+    }
+
+    _applyCalendarTextStyle(actor, style) {
+        if (!actor)
+            return;
+
+        const keepsAccentColor = style &&
+            typeof actor.has_style_class_name === 'function' &&
+            (actor.has_style_class_name('today') ||
+             actor.has_style_class_name('selected'));
+
+        actor.set_style(keepsAccentColor ? '' : style);
+
+        if (typeof actor.get_children === 'function')
+            actor.get_children().forEach(child => this._applyCalendarTextStyle(child, style));
     }
 
     destroy() {
@@ -910,6 +956,10 @@ class Extension40to44 {
         this._dateFormat      = this._settings.get_string('date-format');
         this._dateOffset      = this._settings.get_int('date-offset');
         this._textColor       = this._settings.get_string('text-color');
+        this._useThemeTextColor = this._settings.get_boolean('use-theme-text-color');
+        this._calendarTextColor = this._settings.get_string('calendar-text-color');
+        this._useThemeCalendarTextColor =
+            this._settings.get_boolean('use-theme-calendar-text-color');
 
         this._addToPanel();
     }

@@ -730,8 +730,8 @@ function _buildSharedUI(container, settings, mode = 'all') {
         if (Adw) {
             if (!container._appearanceGroup) {
                 container._appearanceGroup = new Adw.PreferencesGroup({
-                    title: _('Color Customization'),
-                    description: _('Personalize the appearance of your Hijri date'),
+                    title: _('Appearance'),
+                    description: _('Use GNOME Shell theme colors by default, or choose custom colors'),
                 });
                 if (container.add) container.add(container._appearanceGroup);
             }
@@ -742,14 +742,7 @@ function _buildSharedUI(container, settings, mode = 'all') {
         }
     };
 
-    if (Adw) {
-        const colorExpander = new Adw.ExpanderRow({
-            title: _('Text Color Picker'),
-            subtitle: _('Customize the text color'),
-            show_enable_switch: false,
-            expanded: true,
-        });
-
+    const createColorControls = (colorKey, useThemeKey) => {
         const colorContainer = new Gtk.Box({
             orientation: Gtk.Orientation.VERTICAL,
             spacing: 8,
@@ -758,9 +751,9 @@ function _buildSharedUI(container, settings, mode = 'all') {
 
         let hexEntry;
         const colorWheel = new ColorWheel(
-            settings.get_string('text-color'),
+            settings.get_string(colorKey),
             (color) => {
-                settings.set_string('text-color', color);
+                settings.set_string(colorKey, color);
                 hexEntry.set_text(color);
             }
         );
@@ -781,7 +774,7 @@ function _buildSharedUI(container, settings, mode = 'all') {
         const hexBox = new Gtk.Box({ orientation: Gtk.Orientation.HORIZONTAL, spacing: 6, halign: Gtk.Align.CENTER });
         const hexLabel = new Gtk.Label({ label: _('Hex Code:') });
         hexEntry = new Gtk.Entry({
-            text: settings.get_string('text-color'),
+            text: settings.get_string(colorKey),
             placeholder_text: '#ffffff',
             max_length: 7,
             width_chars: 8,
@@ -800,7 +793,7 @@ function _buildSharedUI(container, settings, mode = 'all') {
                 hex = hex.toLowerCase();
                 hexEntry.remove_css_class('error-state');
                 colorWheel.setColor(hex);
-                settings.set_string('text-color', hex);
+                settings.set_string(colorKey, hex);
             } else if (hex.length > 0) {
                 hexEntry.add_css_class('error-state');
             } else {
@@ -815,81 +808,100 @@ function _buildSharedUI(container, settings, mode = 'all') {
         colorContainer.append(brightnessBox);
         colorContainer.append(hexBox);
 
+        const syncSensitivity = () => {
+            colorContainer.sensitive = !settings.get_boolean(useThemeKey);
+        };
+        syncSensitivity();
+
+        return {colorContainer, syncSensitivity};
+    };
+
+    const createAdwColorExpander = (title, subtitle, colorKey, useThemeKey) => {
+        const colorExpander = new Adw.ExpanderRow({
+            title,
+            subtitle,
+            show_enable_switch: false,
+            expanded: false,
+        });
+
+        const useThemeRow = new Adw.ActionRow({
+            title: _('Use Theme Color'),
+            subtitle: _('Follow GNOME Shell light and dark theme colors'),
+            activatable: true,
+        });
+        const useThemeSwitch = new Gtk.Switch({
+            active: settings.get_boolean(useThemeKey),
+            valign: Gtk.Align.CENTER,
+        });
+        useThemeRow.add_suffix(useThemeSwitch);
+        settings.bind(useThemeKey, useThemeSwitch, 'active', Gio.SettingsBindFlags.DEFAULT);
+        colorExpander.add_row(useThemeRow);
+
+        const {colorContainer, syncSensitivity} = createColorControls(colorKey, useThemeKey);
         const colorRow = new Adw.ActionRow();
         colorRow.set_child(colorContainer);
         colorExpander.add_row(colorRow);
 
-        addToAppearance(colorExpander);
-    } else {
-        /* GTK-only fallback (no Adw): put controls directly in a box */
-        const frame = new Gtk.Frame({ label: _('Text Color Picker') });
-        const colorContainer = new Gtk.Box({
+        useThemeSwitch.connect('notify::active', syncSensitivity);
+        return colorExpander;
+    };
+
+    const createGtkColorFrame = (title, colorKey, useThemeKey) => {
+        const frame = new Gtk.Frame({ label: title });
+        const frameBox = new Gtk.Box({
             orientation: Gtk.Orientation.VERTICAL,
             spacing: 8,
             margin_top: 8, margin_bottom: 8, margin_start: 8, margin_end: 8,
         });
 
-        let hexEntry;
-        const colorWheel = new ColorWheel(
-            settings.get_string('text-color'),
-            (color) => {
-                settings.set_string('text-color', color);
-                hexEntry.set_text(color);
-            }
-        );
-
-        const brightnessBox = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 4 });
-        const brightnessLabel = new Gtk.Label({ label: _('Brightness'), xalign: 0 });
-        const brightnessScale = new Gtk.Scale({
-            orientation: Gtk.Orientation.HORIZONTAL,
-            adjustment: new Gtk.Adjustment({ lower: 0, upper: 1, step_increment: 0.01, value: colorWheel.value }),
-            draw_value: false,
+        const useThemeSwitch = new Gtk.Switch({
+            active: settings.get_boolean(useThemeKey),
+            valign: Gtk.Align.CENTER,
+        });
+        const useThemeBox = new Gtk.Box({ orientation: Gtk.Orientation.HORIZONTAL, spacing: 8 });
+        useThemeBox.append(new Gtk.Label({
+            label: _('Use Theme Color'),
+            xalign: 0,
             hexpand: true,
-        });
-        _setAccessibleName(brightnessScale, brightnessLabel.label);
-        brightnessScale.connect('value-changed', () => colorWheel.setValue(brightnessScale.get_value()));
-        brightnessBox.append(brightnessLabel);
-        brightnessBox.append(brightnessScale);
-
-        const hexBox = new Gtk.Box({ orientation: Gtk.Orientation.HORIZONTAL, spacing: 6, halign: Gtk.Align.CENTER });
-        const hexLabel = new Gtk.Label({ label: _('Hex Code:') });
-        hexEntry = new Gtk.Entry({
-            text: settings.get_string('text-color'),
-            placeholder_text: '#ffffff',
-            max_length: 7,
-            width_chars: 8,
-        });
-        _setAccessibleName(hexEntry, hexLabel.label);
-
-        hexEntry.connect('changed', () => {
-            let hex = hexEntry.get_text().trim();
-            if (hex.length > 0 && !hex.startsWith('#'))
-                hex = '#' + hex;
-
-            const isValid = hex.length === 0 || /^#?[0-9A-Fa-f]{6}$/.test(hex);
-            if (isValid && hex.length > 0) {
-                if (!hex.startsWith('#'))
-                    hex = '#' + hex;
-                hex = hex.toLowerCase();
-                hexEntry.remove_css_class('error-state');
-                colorWheel.setColor(hex);
-                settings.set_string('text-color', hex);
-            } else if (hex.length > 0) {
-                hexEntry.add_css_class('error-state');
-            } else {
-                hexEntry.remove_css_class('error-state');
-            }
+        }));
+        useThemeBox.append(useThemeSwitch);
+        useThemeSwitch.connect('notify::active', () => {
+            settings.set_boolean(useThemeKey, useThemeSwitch.active);
         });
 
-        hexBox.append(hexLabel);
-        hexBox.append(hexEntry);
+        const {colorContainer, syncSensitivity} = createColorControls(colorKey, useThemeKey);
+        useThemeSwitch.connect('notify::active', syncSensitivity);
 
-        colorContainer.append(colorWheel);
-        colorContainer.append(brightnessBox);
-        colorContainer.append(hexBox);
+        frameBox.append(useThemeBox);
+        frameBox.append(colorContainer);
+        frame.set_child(frameBox);
+        return frame;
+    };
 
-        frame.set_child(colorContainer);
-        container.add(frame);
+    if (Adw) {
+        addToAppearance(createAdwColorExpander(
+            _('Panel Date Color'),
+            _('Color for the Hijri date in the top bar'),
+            'text-color',
+            'use-theme-text-color'
+        ));
+        addToAppearance(createAdwColorExpander(
+            _('Popup Calendar Text Color'),
+            _('Color for the Hijri calendar popup text'),
+            'calendar-text-color',
+            'use-theme-calendar-text-color'
+        ));
+    } else {
+        container.add(createGtkColorFrame(
+            _('Panel Date Color'),
+            'text-color',
+            'use-theme-text-color'
+        ));
+        container.add(createGtkColorFrame(
+            _('Popup Calendar Text Color'),
+            'calendar-text-color',
+            'use-theme-calendar-text-color'
+        ));
     }
 }
 
