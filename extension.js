@@ -50,6 +50,10 @@ function isSameDay(left, right) {
         left.getDate() === right.getDate();
 }
 
+function isWorkDay(date) {
+    return !'06'.includes(date.getDay().toString());
+}
+
 function getCalendarId(method) {
     switch (method) {
         case CalendarMethod.CIVIL:
@@ -822,10 +826,25 @@ class HijriDateButtonClass extends PanelMenu.Button {
             const isCurrentMonth = cellParts.month === targetParts.month &&
                 cellParts.year === targetParts.year;
             const isToday = isSameDay(cellDate, baseDate);
+            let styleClass = 'hijri-calendar-day calendar-day-base calendar-day';
+
+            if (isWorkDay(cellDate))
+                styleClass += ' calendar-work-day';
+            else
+                styleClass += ' calendar-nonwork-day';
+
+            if (Math.floor(i / 7) === 0)
+                styleClass = `calendar-day-top ${styleClass}`;
+
+            const leftMost = this._calendarGrid.get_text_direction() === Clutter.TextDirection.RTL
+                ? i % 7 === 6
+                : i % 7 === 0;
+            if (leftMost)
+                styleClass = `calendar-day-left ${styleClass}`;
 
             const dayButton = new St.Button({
                 label: formatters.displayDay.format(displayDate),
-                style_class: 'hijri-calendar-day calendar-day-base calendar-day',
+                style_class: styleClass,
                 x_align: Clutter.ActorAlign.CENTER,
                 y_align: Clutter.ActorAlign.CENTER,
                 can_focus: false,
@@ -875,35 +894,21 @@ class HijriDateButtonClass extends PanelMenu.Button {
         const style = !this._extension._useThemeCalendarTextColor && hasCustomColor
             ? `color: ${customColor};`
             : null;
-        [
-            this._calendarHeader,
-            this._monthPickerBox,
-            this._yearPickerBox,
-            this._calendarGrid,
-        ].forEach(actor => this._applyCalendarTextStyle(actor, style));
-    }
+        const textActors = [
+            this._calendarMonthLabel,
+            this._calendarYearLabel,
+            this._calendarTodayButton,
+            ...this._monthPickerGrid.get_children(),
+            ...this._yearPickerList.get_children(),
+            ...this._calendarGrid.get_children(),
+        ];
 
-    _applyCalendarTextStyle(actor, style) {
-        if (!actor)
-            return;
-
-        const keepsAccentColor = style &&
-            typeof actor.has_style_class_name === 'function' &&
-            (actor.has_style_class_name('today') ||
-             actor.has_style_class_name('selected'));
-
-        // A selected or current-day label inherits its foreground through the
-        // actor tree. Clear the full subtree instead of styling only its container.
-        if (keepsAccentColor)
-            style = null;
-
-        // Calendar layout containers can expose non-St children. Only St widgets
-        // accept inline CSS through set_style().
-        if (typeof actor.set_style === 'function')
-            actor.set_style(style);
-
-        if (typeof actor.get_children === 'function')
-            actor.get_children().forEach(child => this._applyCalendarTextStyle(child, style));
+        for (const actor of textActors) {
+            const keepsNativeForeground = actor.has_style_class_name('today') ||
+                actor.has_style_class_name('calendar-today') ||
+                actor.has_style_class_name('selected');
+            actor.set_style(keepsNativeForeground ? null : style);
+        }
     }
 
     destroy() {
