@@ -36,7 +36,7 @@ const YearSuffixStyle = { AH: 0, HEH: 1 };
 
 const PositionTextRAW = {
     [Position.FAR_LEFT] : 'Far Left',
-    [Position.LEFT]     : 'Left',
+    [Position.LEFT]     : 'Left 1',
     [Position.CENTER]   : 'Center',
     [Position.RIGHT]    : 'Right',
     [Position.FAR_RIGHT]: 'Far Right',
