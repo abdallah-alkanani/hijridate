@@ -4,15 +4,6 @@
    Panel button and popup menu styles
 ─────────────────────────────────────────────────────────── */
 
-/* Helper classes */
-.no-row-hover,
-.no-row-hover:hover,
-.no-row-hover:selected,
-.no-row-hover:focus {
-    background-color: transparent;
-}
-
-
 /* Panel button */
 .hijri-date-button {
     padding: 0 6px;
