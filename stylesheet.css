@@ -19,15 +19,6 @@
     transition-duration: 150ms;
 }
 
-.hijri-date-button:hover,
-.hijri-date-button:focus {
-    background-color: rgba(255,255,255,0.05);
-}
-
-.hijri-date-button:active {
-    background-color: rgba(255,255,255,0.08);
-}
-
 .hijri-date-label {
     font-size: 14px;
     font-weight: bold;
