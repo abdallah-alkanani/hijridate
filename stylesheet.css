@@ -52,7 +52,6 @@
 .hijri-calendar-header {
     font-size: 16px;
     font-weight: 600;
-    color: rgba(255,255,255,0.95);
 }
 
 .hijri-calendar-header-button {
@@ -77,14 +76,12 @@
     margin-left: 8px;
     border-radius: 10px;
     font-size: 12px;
-    color: rgba(255,255,255,0.75);
-    background-color: rgba(255,255,255,0.08);
+    background-color: transparent;
 }
 
 .hijri-calendar-today-button:hover,
 .hijri-calendar-today-button:focus {
-    background-color: rgba(255,255,255,0.16);
-    color: rgba(255,255,255,0.95);
+    background-color: rgba(128,128,128,0.16);
 }
 
 .hijri-calendar-picker {
@@ -101,19 +98,18 @@
     padding: 4px 6px;
     margin: 2px;
     background-color: transparent;
-    color: rgba(255,255,255,0.9);
     font-weight: 500;
 }
 
 .hijri-calendar-month-button:hover,
 .hijri-calendar-year-button:hover {
-    background-color: rgba(255,255,255,0.12);
+    background-color: rgba(128,128,128,0.16);
 }
 
 .hijri-calendar-month-button.selected,
 .hijri-calendar-year-button.selected {
-    background-color: rgba(255,255,255,0.22);
-    color: #fff;
+    background-color: -st-accent-color;
+    color: -st-accent-fg-color;
     font-weight: 600;
 }
 
@@ -135,13 +131,11 @@
     width: 3em;
     margin: 2px;
     padding: 0;
-    color: rgba(255,255,255,0.95);
     font-weight: bold;
     text-align: center;
 }
 
 .hijri-calendar-day.other-month {
-    color: rgba(255,255,255,0.4);
     font-weight: normal;
 }
 
