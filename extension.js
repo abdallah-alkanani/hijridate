@@ -814,7 +814,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
         weekdayLabels.forEach((label, index) => {
             const dayLabel = new St.Label({
                 text: label,
-                style_class: 'hijri-calendar-weekday calendar-day-heading',
+                style_class: 'hijri-calendar-weekday calendar-day-base calendar-day-heading',
                 x_align: Clutter.ActorAlign.CENTER,
                 y_align: Clutter.ActorAlign.CENTER,
             });
@@ -833,7 +833,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
 
             const dayButton = new St.Button({
                 label: formatters.displayDay.format(displayDate),
-                style_class: 'hijri-calendar-day calendar-day',
+                style_class: 'hijri-calendar-day calendar-day-base calendar-day',
                 x_align: Clutter.ActorAlign.CENTER,
                 y_align: Clutter.ActorAlign.CENTER,
                 can_focus: false,
@@ -843,7 +843,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
 
             if (!isCurrentMonth) {
                 dayButton.add_style_class_name('other-month');
-                dayButton.add_style_class_name('calendar-other-month');
+                dayButton.add_style_class_name('calendar-other-month-day');
             }
             if (isToday) {
                 dayButton.add_style_class_name('today');
