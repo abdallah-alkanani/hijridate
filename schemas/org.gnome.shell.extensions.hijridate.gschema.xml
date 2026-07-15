@@ -3,11 +3,18 @@
   <schema id="org.gnome.shell.extensions.hijridate"
           path="/org/gnome/shell/extensions/hijridate/">
 
-    <!-- 0 = Center · 1 = Right · 2 = Far-Right · 3 = Left · 4 = Far-Left -->
+    <!-- 0 = Far-Left · 1 = Left · 2 = Center · 3 = Right · 4 = Far-Right -->
     <key name="position" type="i">
       <summary>Indicator position</summary>
       <description>Location of the Hijri-date button in the top bar.</description>
-      <default>3</default>
+      <default>1</default>
+    </key>
+
+    <!-- 0 = Left · 1 = Middle-Left · 2 = Right · 3 = Middle-Right -->
+    <key name="center-position" type="i">
+      <summary>Position within the center panel box</summary>
+      <description>Ordering of the Hijri-date button relative to other center indicators.</description>
+      <default>0</default>
     </key>
 
     <key name="spacing" type="i">

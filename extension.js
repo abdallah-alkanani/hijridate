@@ -30,6 +30,7 @@ const CalendarMethod = {
 };
 const YearSuffixStyle = { AH: 0, HEH: 1 };
 const Position = { FAR_LEFT: 0, LEFT: 1, CENTER: 2, RIGHT: 3, FAR_RIGHT: 4 };
+const CenterPosition = { LEFT: 0, MIDDLE_LEFT: 1, RIGHT: 2, MIDDLE_RIGHT: 3 };
 
 const DEFAULT_SPACING = 0;
 const YEAR_RANGE_LIMIT = 200;
@@ -169,7 +170,7 @@ function getHijriDate(
              .replace(/,\s*,+/g, ',')
              .replace(/,+/g, ', ')
              .replace(/\s*,\s*/g, ', ')
-             .replace(/^\s+|\s+$|\,+$|\,+\s+$/g, '');
+             .replace(/^\s+|\s+$|,+$|,+\s+$/g, '');
 
     const fallbackLabel = _('Hijri Date');
     return out.trim() || `(${fallbackLabel})`;
@@ -177,8 +178,8 @@ function getHijriDate(
 
 /* ----- Panel button ------------------------------------------------------- */
 
-var HijriDateButton = GObject.registerClass(
-class HijriDateButton extends PanelMenu.Button {
+const HijriDateButton = GObject.registerClass(
+class HijriDateButtonClass extends PanelMenu.Button {
     _init(extension) {
         /* For 40–44 the ctor signature is (alignment, name, dontCreateMenu?) */
         PanelMenu.Button.prototype._init.call(this, 0.5, _('Hijri Date'));
@@ -242,6 +243,9 @@ class HijriDateButton extends PanelMenu.Button {
                     this._extension.setPosition(pos);
                     break;
                 }
+                case 'center-position':
+                    this._extension.setCenterPosition(settings.get_int('center-position'));
+                    break;
                 case 'spacing': {
                     this._extension._spacing = settings.get_int('spacing');
                     if (this._extension._spacer)
@@ -713,7 +717,7 @@ class HijriDateButton extends PanelMenu.Button {
         }
 
         if (parts.year !== targetYear || parts.month !== targetMonth) {
-            log('Hijri calendar lookup exceeded safe range');
+            console.warn('Hijri calendar lookup exceeded safe range');
             return null;
         }
 
@@ -748,9 +752,8 @@ class HijriDateButton extends PanelMenu.Button {
         const firstOfDisplayDate = shiftDateByDays(actualFirstDate, -offsetDays);
 
         this._calendarMonthLabel.set_text(formatters.displayMonth.format(adjustedDate));
-        let yearText = '';
         const parts = formatters.displayYear.formatToParts(adjustedDate);
-        yearText = parts
+        let yearText = parts
             .filter(part => part.type === 'year')
             .map(part => part.value)
             .join('');
@@ -886,13 +889,16 @@ class Extension40to44 {
         this._textColor      = '#ffffff';
         this._spacer         = null;
         this._settings       = null;
-        this._centerTimeout  = 0;
+        this._centerPosition = CenterPosition.LEFT;
+        this._centerBoxSignalIds = [];
+        this._centerReorderId = 0;
     }
 
     enable() {
         this._settings = ExtensionUtils.getSettings();
 
         this._position        = this._settings.get_int('position');
+        this._centerPosition  = this._settings.get_int('center-position');
         this._spacing         = this._settings.get_int('spacing');
         this._language        = this._settings.get_int('language');
         this._weekLanguage    = this._settings.get_int('week-language');
@@ -904,25 +910,12 @@ class Extension40to44 {
         this._dateOffset      = this._settings.get_int('date-offset');
         this._textColor       = this._settings.get_string('text-color');
 
-        if (this._position === Position.CENTER) {
-            if (this._centerTimeout) {
-                GLib.Source.remove(this._centerTimeout);
-                this._centerTimeout = 0;
-            }
-            /* slight delay so dateMenu is present */
-            this._centerTimeout = GLib.timeout_add(
-                GLib.PRIORITY_DEFAULT, 100, () => {
-                    this._addToPanel();
-                    this._centerTimeout = 0;
-                    return GLib.SOURCE_REMOVE;
-                }
-            );
-        } else {
-            this._addToPanel();
-        }
+        this._addToPanel();
     }
 
     _addToPanel() {
+        this._unwatchCenterBox();
+
         if (this._indicator)
             this._indicator.destroy();
 
@@ -942,9 +935,8 @@ class Extension40to44 {
                 break;
             case Position.CENTER: {
                 boxName = 'center';
-                const centerBox = Main.panel._centerBox;
-                const dateMenuIndex = this._findDateMenuIndex(centerBox);
-                boxIndex = dateMenuIndex >= 0 ? dateMenuIndex : 0;
+                boxIndex = this._getCenterBoxIndex(
+                    Main.panel._centerBox.get_n_children());
                 break;
             }
             case Position.RIGHT:
@@ -975,6 +967,9 @@ class Extension40to44 {
             }
             this._addSpacerToPanel(this._spacer);
         }
+
+        if (this._position === Position.CENTER)
+            this._watchCenterBox();
     }
 
     setPosition(position) {
@@ -984,15 +979,117 @@ class Extension40to44 {
             this._spacer.get_parent().remove_child(this._spacer);
 
         this._addToPanel();
+    }
 
-        if (this._spacing > 0 && this._spacer)
-            this._addSpacerToPanel(this._spacer);
+    setCenterPosition(position) {
+        if ([CenterPosition.MIDDLE_LEFT, CenterPosition.MIDDLE_RIGHT].includes(position) &&
+            this._position === Position.CENTER &&
+            this._getOtherCenterChildCount() < 2) {
+            this._settings.set_int('center-position', this._centerPosition);
+            return;
+        }
+
+        this._centerPosition = position;
+        if (this._position === Position.CENTER)
+            this._queueCenterReorder();
+    }
+
+    _getCenterBoxIndex(otherChildren) {
+        switch (this._centerPosition) {
+            case CenterPosition.RIGHT:
+                return -1;
+            case CenterPosition.MIDDLE_LEFT:
+                return otherChildren < 2 ? 0 : Math.floor(otherChildren / 2);
+            case CenterPosition.MIDDLE_RIGHT:
+                return otherChildren < 2 ? -1 : Math.ceil(otherChildren / 2);
+            case CenterPosition.LEFT:
+            default:
+                return 0;
+        }
+    }
+
+    _getOtherCenterChildCount() {
+        const centerBox = Main.panel._centerBox;
+        return centerBox.get_children().filter(child =>
+            child !== (this._indicator && this._indicator.container) &&
+            child !== this._spacer).length;
+    }
+
+    _watchCenterBox() {
+        const centerBox = Main.panel._centerBox;
+        const queueReorder = () => this._queueCenterReorder();
+
+        this._centerBoxSignalIds = [
+            centerBox.connect('child-added', queueReorder),
+            centerBox.connect('child-removed', queueReorder),
+        ];
+        this._queueCenterReorder();
+    }
+
+    _unwatchCenterBox() {
+        if (this._centerReorderId) {
+            GLib.Source.remove(this._centerReorderId);
+            this._centerReorderId = 0;
+        }
+
+        const centerBox = Main.panel && Main.panel._centerBox;
+        if (centerBox) {
+            for (const signalId of this._centerBoxSignalIds)
+                centerBox.disconnect(signalId);
+        }
+        this._centerBoxSignalIds = [];
+    }
+
+    _queueCenterReorder() {
+        if (this._centerReorderId || this._position !== Position.CENTER)
+            return;
+
+        this._centerReorderId = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+            this._centerReorderId = 0;
+            this._reorderCenterIndicator();
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    _reorderCenterIndicator() {
+        const centerBox = Main.panel._centerBox;
+        const container = this._indicator && this._indicator.container;
+        if (!container || container.get_parent() !== centerBox)
+            return;
+
+        const children = centerBox.get_children();
+        const currentIndex = children.indexOf(container);
+        if (currentIndex < 0)
+            return;
+
+        const otherChildCount = this._getOtherCenterChildCount();
+        if ([CenterPosition.MIDDLE_LEFT, CenterPosition.MIDDLE_RIGHT]
+            .includes(this._centerPosition) && otherChildCount < 2)
+            return;
+
+        let targetIndex = this._getCenterBoxIndex(otherChildCount);
+        if (targetIndex < 0)
+            targetIndex = otherChildCount;
+
+        const spacerFollowsIndicator = this._spacer &&
+            this._spacer.get_parent() === centerBox &&
+            children[currentIndex + 1] === this._spacer;
+        if (targetIndex === currentIndex &&
+            (!(this._spacer && this._spacer.get_parent()) || spacerFollowsIndicator))
+            return;
+
+        if (this._spacer && this._spacer.get_parent() === centerBox)
+            centerBox.remove_child(this._spacer);
+        centerBox.remove_child(container);
+        centerBox.insert_child_at_index(container, targetIndex);
+        if (this._spacer)
+            centerBox.insert_child_at_index(this._spacer, targetIndex + 1);
     }
 
     _addSpacerToPanel(spacer) {
         this._spacer = spacer;
 
-        let box = null;
+        let box;
         switch (this._getBoxPosition(this._position)) {
             case 'left':
                 box = Main.panel._leftBox;
@@ -1020,16 +1117,6 @@ class Extension40to44 {
         }
     }
 
-    _findDateMenuIndex(centerBox) {
-        for (let i = 0; i < centerBox.get_n_children(); i++) {
-            const child = centerBox.get_child_at_index(i);
-            if (Main.panel.statusArea.dateMenu &&
-                child === Main.panel.statusArea.dateMenu.container)
-                return i;
-        }
-        return -1;
-    }
-
     _getBoxPosition(position) {
         switch (position) {
             case Position.LEFT:
@@ -1046,10 +1133,7 @@ class Extension40to44 {
     }
 
     disable() {
-        if (this._centerTimeout) {
-            GLib.Source.remove(this._centerTimeout);
-            this._centerTimeout = 0;
-        }
+        this._unwatchCenterBox();
 
         if (this._spacer) {
             if (this._spacer.get_parent())
@@ -1062,17 +1146,14 @@ class Extension40to44 {
             this._indicator.destroy();
             this._indicator = null;
         }
-        if (Main.panel.statusArea['hijri-date'])
-            delete Main.panel.statusArea['hijri-date'];
-
-
         this._settings = null;
     }
 }
 
 /* GNOME 40–44 entry points */
-function init(meta) {
-    /* will use meta.gettext-domain if present; safe if not */
+// Called by GNOME Shell's legacy extension loader.
+// eslint-disable-next-line no-unused-vars
+function init() {
     ExtensionUtils.initTranslations();
 
     return new Extension40to44();

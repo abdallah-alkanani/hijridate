@@ -23,12 +23,12 @@ const Me = ExtensionUtils.getCurrentExtension();
 /* Bind gettext to our domain early; works reliably on GNOME 40–44 */
 const _ = Gettext.domain(Me.metadata['gettext-domain']).gettext;
 
-/* Also initialize translations (harmless if already initialized) */
-ExtensionUtils.initTranslations(Me.metadata['gettext-domain']);
+
 
 
 /* ── ENUMS ────────────────────────────────────────────── */
 const Position = { FAR_LEFT: 0, LEFT: 1, CENTER: 2, RIGHT: 3, FAR_RIGHT: 4 };
+const CenterPosition = { LEFT: 0, MIDDLE_LEFT: 1, RIGHT: 2, MIDDLE_RIGHT: 3 };
 const Language = { ENGLISH: 0, ARABIC: 1 };
 const NumberLanguage = { ENGLISH: 0, ARABIC: 1 };
 const CalendarMethod = { UMM_AL_QURA: 0, CIVIL: 1, TABULAR: 2, ISLAMIC: 3, RGSA: 4 };
@@ -64,8 +64,10 @@ const YearSuffixStyleTextRAW = {
 /* ── Widgets ──────────────────────────────────────────── */
 
 const OptionButton = GObject.registerClass(
-class OptionButton extends Gtk.ToggleButton {
+class OptionButtonClass extends Gtk.ToggleButton {
     _init(label, active) {
+        // GNOME 40 compatibility requires the legacy GObject initializer.
+        // eslint-disable-next-line no-restricted-syntax
         super._init({
             label,
             active,
@@ -85,8 +87,10 @@ class OptionButton extends Gtk.ToggleButton {
 
 /* Continuous Color Wheel Picker (GTK4) */
 const ColorWheel = GObject.registerClass(
-class ColorWheel extends Gtk.DrawingArea {
+class ColorWheelClass extends Gtk.DrawingArea {
     _init(initialColor, onChange) {
+        // GNOME 40 compatibility requires the legacy GObject initializer.
+        // eslint-disable-next-line no-restricted-syntax
         super._init({
             width_request: 200,
             height_request: 200,
@@ -259,78 +263,93 @@ class ColorWheel extends Gtk.DrawingArea {
 
 /* Segmented row that works with/without Adw */
 const SegmentedRow = class {
-    constructor(title, textMap, currentIndex, onChange) {
-        this._buttons = [];
+    constructor(title, textMap, currentIndex, onChange, subtitle = '') {
+        const box = new Gtk.Box({
+            orientation: Gtk.Orientation.HORIZONTAL,
+            spacing: 2,
+            css_classes: ['linked'],
+            homogeneous: true,
+            halign: Gtk.Align.END,
+        });
 
         if (Adw) {
-            this.row = new Adw.ActionRow({ activatable: false, selectable: false });
+            this.row = new Adw.ActionRow({ title, activatable: false, selectable: false });
             this.row.add_css_class('no-row-hover');
-
-            const titleLbl = new Gtk.Label({
-                label: title,
-                xalign: 0,
-                halign: Gtk.Align.START,
-                valign: Gtk.Align.CENTER,
-            });
-
-            const box = new Gtk.Box({
-                orientation: Gtk.Orientation.HORIZONTAL,
-                spacing: 2,
-                css_classes: ['linked'],
-                hexpand: false,
-                halign: Gtk.Align.END,
-            });
-            this.row.add_prefix(titleLbl);
-            this.row.add_suffix(box);
-
-            this._buttons = Object.entries(textMap).map(([key, label]) => {
-                const idx = Number(key);
-                const btn = new OptionButton(label, idx === currentIndex);
-                btn.connect('toggled', () => {
-                    if (!btn.active) return;
-                    this._buttons.forEach(b => (b.active = b === btn));
-                    onChange(idx);
+            if (subtitle) {
+                const grid = new Gtk.Grid({
+                    column_spacing: 24,
+                    row_spacing: 2,
+                    hexpand: true,
                 });
-                box.append(btn);
-                return btn;
-            });
+                grid.attach(new Gtk.Label({
+                    label: title,
+                    xalign: 0,
+                    halign: Gtk.Align.START,
+                    valign: Gtk.Align.CENTER,
+                }), 0, 0, 1, 1);
+                box.hexpand = true;
+                box.halign = Gtk.Align.FILL;
+                grid.attach(box, 1, 0, 1, 1);
+                grid.attach(new Gtk.Label({
+                    label: subtitle,
+                    xalign: 0,
+                    halign: Gtk.Align.FILL,
+                    hexpand: true,
+                    wrap: true,
+                    max_width_chars: 80,
+                    css_classes: ['format-help-text'],
+                }), 1, 1, 1, 1);
+                this.row.title = '';
+                this.row.add_prefix(grid);
+            } else {
+                this.row.add_suffix(box);
+            }
         } else {
-            /* Fallback layout for 40–41 without Adw: plain row */
             this.row = new Gtk.Box({
                 orientation: Gtk.Orientation.HORIZONTAL,
                 spacing: 6,
                 hexpand: true,
-                halign: Gtk.Align.FILL,
             });
-
-            const titleLbl = new Gtk.Label({
+            this.row.append(new Gtk.Label({
                 label: title,
                 xalign: 0,
                 halign: Gtk.Align.START,
-                valign: Gtk.Align.CENTER,
                 hexpand: true,
-            });
-            this.row.append(titleLbl);
-
-            const box = new Gtk.Box({
-                orientation: Gtk.Orientation.HORIZONTAL,
-                spacing: 2,
-                css_classes: ['linked'],
-            });
-            this.row.append(box);
-
-            this._buttons = Object.entries(textMap).map(([key, label]) => {
-                const idx = Number(key);
-                const btn = new OptionButton(label, idx === currentIndex);
-                btn.connect('toggled', () => {
-                    if (!btn.active) return;
-                    this._buttons.forEach(b => (b.active = b === btn));
-                    onChange(idx);
+            }));
+            if (subtitle) {
+                const contentBox = new Gtk.Box({
+                    orientation: Gtk.Orientation.VERTICAL,
+                    spacing: 2,
+                    hexpand: true,
                 });
-                box.append(btn);
-                return btn;
-            });
+                box.hexpand = true;
+                box.halign = Gtk.Align.FILL;
+                contentBox.append(box);
+                contentBox.append(new Gtk.Label({
+                    label: subtitle,
+                    xalign: 0,
+                    halign: Gtk.Align.FILL,
+                    hexpand: true,
+                    wrap: true,
+                    max_width_chars: 80,
+                    css_classes: ['format-help-text'],
+                }));
+                this.row.append(contentBox);
+            } else {
+                this.row.append(box);
+            }
         }
+
+        this._buttons = Object.entries(textMap).map(([key, label]) => {
+            const idx = Number(key);
+            const btn = new OptionButton(label, idx === currentIndex);
+            btn.connect('clicked', () => {
+                this._buttons.forEach(b => (b.active = b === btn));
+                onChange(idx);
+            });
+            box.append(btn);
+            return btn;
+        });
     }
 };
 
@@ -484,10 +503,6 @@ function _buildSharedUI(container, settings, mode = 'all') {
         const formatGroup = groupAdd(_('Format'));
 
         /* Date format row */
-        const fmtRow = Adw ? new Adw.ActionRow({ activatable: false, selectable: false })
-                           : new Gtk.Box({ orientation: Gtk.Orientation.HORIZONTAL, spacing: 6, hexpand: true });
-        if (Adw) fmtRow.add_css_class('no-row-hover');
-
         const fmtLabel = new Gtk.Label({
             label: _('Date Format'),
             xalign: 0,
@@ -495,12 +510,16 @@ function _buildSharedUI(container, settings, mode = 'all') {
             valign: Gtk.Align.CENTER,
         });
 
-        const vBox = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 2 });
-        const hBox = new Gtk.Box({ spacing: 4 });
+        const formatBox = new Gtk.Box({
+            orientation: Gtk.Orientation.VERTICAL,
+            spacing: 2,
+            halign: Gtk.Align.END,
+        });
+        const hBox = new Gtk.Box({ spacing: 4, halign: Gtk.Align.END });
 
         const fmtEntry = new Gtk.Entry({
             text: settings.get_string('date-format'),
-            hexpand: true,
+            width_chars: 38,
         });
         _setAccessibleName(fmtEntry, fmtLabel.label);
         fmtEntry.placeholder_text = _('{day} {month} {year} {suffix}');
@@ -513,25 +532,35 @@ function _buildSharedUI(container, settings, mode = 'all') {
         resetBtn.set_child(Gtk.Image.new_from_icon_name('view-refresh-symbolic'));
         hBox.append(resetBtn);
 
-        vBox.append(hBox);
-
         const note = new Gtk.Label({
             label: _('Note: When language is Arabic, order of tokens is reversed'),
+            xalign: 0,
             halign: Gtk.Align.START,
             wrap: true,
+            max_width_chars: 60,
             css_classes: ['format-help-text'],
         });
-        vBox.append(note);
+        formatBox.append(hBox);
+        formatBox.append(note);
 
+        let fmtRow;
         if (Adw) {
-            fmtRow.add_prefix(vBox);
-            fmtRow.add_prefix(fmtLabel);
+            fmtRow = new Adw.ActionRow({
+                title: _('Date Format'),
+                activatable: false,
+                selectable: false,
+            });
+            fmtRow.add_css_class('no-row-hover');
+            fmtRow.add_suffix(formatBox);
         } else {
-            const left = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 2, hexpand: true });
-            left.append(fmtLabel);
-            left.append(note);
-            fmtRow.append(left);
-            fmtRow.append(vBox);
+            fmtRow = new Gtk.Box({
+                orientation: Gtk.Orientation.HORIZONTAL,
+                spacing: 6,
+                hexpand: true,
+            });
+            fmtLabel.hexpand = true;
+            fmtRow.append(fmtLabel);
+            fmtRow.append(formatBox);
         }
 
         formatGroup.add(fmtRow);
@@ -635,7 +664,25 @@ function _buildSharedUI(container, settings, mode = 'all') {
         formatGroup.add(new SegmentedRow(
             _('Position'), PositionText,
             settings.get_int('position'),
-            idx => settings.set_int('position', idx)
+            idx => {
+                const previousPosition = settings.get_int('position');
+                if (idx === Position.CENTER) {
+                    let centerPosition = CenterPosition.LEFT;
+                    if (previousPosition === Position.CENTER) {
+                        const currentCenterPosition = settings.get_int('center-position');
+                        centerPosition = [CenterPosition.RIGHT, CenterPosition.MIDDLE_RIGHT]
+                            .includes(currentCenterPosition)
+                            ? CenterPosition.MIDDLE_RIGHT
+                            : CenterPosition.MIDDLE_LEFT;
+                    } else if ([Position.RIGHT, Position.FAR_RIGHT].includes(previousPosition)) {
+                        centerPosition = CenterPosition.RIGHT;
+                    }
+
+                    settings.set_int('center-position', centerPosition);
+                }
+                settings.set_int('position', idx);
+            },
+            _('Note: Right → Center → Center selects middle-right; Left → Center → Center selects middle-left.')
         ).row);
 
         /* Show year + suffix style */
@@ -708,6 +755,7 @@ function _buildSharedUI(container, settings, mode = 'all') {
             margin_top: 8, margin_bottom: 8, margin_start: 8, margin_end: 8,
         });
 
+        let hexEntry;
         const colorWheel = new ColorWheel(
             settings.get_string('text-color'),
             (color) => {
@@ -731,7 +779,7 @@ function _buildSharedUI(container, settings, mode = 'all') {
 
         const hexBox = new Gtk.Box({ orientation: Gtk.Orientation.HORIZONTAL, spacing: 6, halign: Gtk.Align.CENTER });
         const hexLabel = new Gtk.Label({ label: _('Hex Code:') });
-        const hexEntry = new Gtk.Entry({
+        hexEntry = new Gtk.Entry({
             text: settings.get_string('text-color'),
             placeholder_text: '#ffffff',
             max_length: 7,
@@ -780,6 +828,7 @@ function _buildSharedUI(container, settings, mode = 'all') {
             margin_top: 8, margin_bottom: 8, margin_start: 8, margin_end: 8,
         });
 
+        let hexEntry;
         const colorWheel = new ColorWheel(
             settings.get_string('text-color'),
             (color) => {
@@ -803,7 +852,7 @@ function _buildSharedUI(container, settings, mode = 'all') {
 
         const hexBox = new Gtk.Box({ orientation: Gtk.Orientation.HORIZONTAL, spacing: 6, halign: Gtk.Align.CENTER });
         const hexLabel = new Gtk.Label({ label: _('Hex Code:') });
-        const hexEntry = new Gtk.Entry({
+        hexEntry = new Gtk.Entry({
             text: settings.get_string('text-color'),
             placeholder_text: '#ffffff',
             max_length: 7,
@@ -844,6 +893,8 @@ function _buildSharedUI(container, settings, mode = 'all') {
 }
 
 /* ── 42–44 API ────────────────────────────────────────── */
+// Called by the GNOME 42-44 preferences loader.
+// eslint-disable-next-line no-unused-vars
 function fillPreferencesWindow(window) {
     _loadStylesheet();
 
@@ -912,6 +963,8 @@ function buildPrefsWidget() {
 }
 
 /* ── init() for translations ──────────────────────────── */
+// Called by GNOME Shell's legacy preferences loader.
+// eslint-disable-next-line no-unused-vars
 function init() {
     ExtensionUtils.initTranslations();
 }
