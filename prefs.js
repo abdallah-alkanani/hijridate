@@ -886,22 +886,11 @@ function _buildSharedUI(container, settings, mode = 'all') {
             'text-color',
             'use-theme-text-color'
         ));
-        addToAppearance(createAdwColorExpander(
-            _('Popup Calendar Text Color'),
-            _('Color for the Hijri calendar popup text'),
-            'calendar-text-color',
-            'use-theme-calendar-text-color'
-        ));
     } else {
         container.add(createGtkColorFrame(
             _('Panel Date Color'),
             'text-color',
             'use-theme-text-color'
-        ));
-        container.add(createGtkColorFrame(
-            _('Popup Calendar Text Color'),
-            'calendar-text-color',
-            'use-theme-calendar-text-color'
         ));
     }
 }
