@@ -397,7 +397,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
         this._calendarHeaderCenterBox.add_child(this._calendarYearButton);
 
         this._calendarTodayButton = new St.Button({
-            label: _('Today'),
+            label: 'Today 2',
             style_class: 'hijri-calendar-today-button',
             can_focus: true,
             reactive: true,
