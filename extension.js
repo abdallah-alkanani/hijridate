@@ -871,14 +871,14 @@ class HijriDateButtonClass extends PanelMenu.Button {
 
     _updateColor() {
         const style = this._extension._useThemeTextColor
-            ? ''
+            ? null
             : `color: ${this._extension._textColor};`;
         this.label.set_style(style);
     }
 
     _updateCalendarColor() {
         const style = this._extension._useThemeCalendarTextColor
-            ? ''
+            ? null
             : `color: ${this._extension._calendarTextColor};`;
         [
             this._calendarHeader,
@@ -897,7 +897,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
             (actor.has_style_class_name('today') ||
              actor.has_style_class_name('selected'));
 
-        actor.set_style(keepsAccentColor ? '' : style);
+        actor.set_style(keepsAccentColor ? null : style);
 
         if (typeof actor.get_children === 'function')
             actor.get_children().forEach(child => this._applyCalendarTextStyle(child, style));
