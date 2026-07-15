@@ -244,13 +244,14 @@ class HijriDateButtonClass extends PanelMenu.Button {
         this._updateColor();
 
         this.add_style_class_name('hijri-date-button');
-        this.menu.actor.add_style_class_name('popup-menu-below-panel');
         this.menu.setSourceAlignment(0.5);
 
         this._addCalendar();
         this._addSettingsButton();
         this._menuOpenChangedId = this.menu.connect('open-state-changed', (menu, isOpen) => {
-            if (!isOpen)
+            if (isOpen)
+                this._syncHeaderSpacer();
+            else
                 this._hidePickers();
         });
 
@@ -402,10 +403,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
             y_align: Clutter.ActorAlign.CENTER
         });
         this._calendarTodayButton.connect('clicked', () => this._goToToday());
-        this._calendarTodayButton.connect('notify::width', () => this._syncHeaderSpacer());
-        this._calendarTodayButton.connect('style-changed', () => this._syncHeaderSpacer());
         this._calendarHeader.add_child(this._calendarTodayButton);
-        this._syncHeaderSpacer();
 
         this._monthPickerBox = new St.BoxLayout({
             vertical: true,
@@ -485,6 +483,9 @@ class HijriDateButtonClass extends PanelMenu.Button {
     _syncHeaderSpacer() {
         if (!this._calendarHeaderSpacer || !this._calendarTodayButton)
             return;
+        if (!this._calendarTodayButton.get_stage())
+            return;
+
         const [, naturalWidth] = this._calendarTodayButton.get_preferred_width(-1);
         let width = naturalWidth;
         try {
