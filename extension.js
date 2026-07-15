@@ -236,9 +236,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
         this._addSettingsButton();
 
         this._menuOpenChangedId = this.menu.connect('open-state-changed', (menu, isOpen) => {
-            if (isOpen)
-                this._updateCalendarColor();
-            else
+            if (!isOpen)
                 this._hidePickers();
         });
 
@@ -901,15 +899,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
         const customColor = this._extension._calendarTextColor;
         const usesCustomColor = !this._extension._useThemeCalendarTextColor &&
             /^#[0-9A-Fa-f]{6}$/.test(customColor);
-        const weekHeading = this._calendarGrid.get_children().find(actor =>
-            actor.has_style_class_name('calendar-day-heading'));
-        if (weekHeading)
-            weekHeading.ensure_style();
-        const themeColor = weekHeading
-            ? weekHeading.get_theme_node().get_foreground_color().to_string()
-            : null;
-        const color = usesCustomColor ? customColor : themeColor;
-        const style = color ? `color: ${color};` : null;
+        const style = usesCustomColor ? `color: ${customColor};` : null;
         const textActors = [
             this._calendarMonthLabel,
             this._calendarYearLabel,
@@ -920,13 +910,10 @@ class HijriDateButtonClass extends PanelMenu.Button {
         ];
 
         for (const actor of textActors) {
-            const keepsNativeForeground = actor.has_style_class_name('today') ||
+            const keepsNativeForeground = !usesCustomColor ||
+                actor.has_style_class_name('today') ||
                 actor.has_style_class_name('calendar-today') ||
-                actor.has_style_class_name('selected') ||
-                (!usesCustomColor &&
-                    (actor.has_style_class_name('calendar-day-heading') ||
-                     actor.has_style_class_name('calendar-nonwork-day') ||
-                     actor.has_style_class_name('calendar-other-month-day')));
+                actor.has_style_class_name('selected');
             actor.set_style(keepsNativeForeground ? null : style);
         }
     }
