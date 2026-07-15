@@ -898,7 +898,10 @@ class HijriDateButtonClass extends PanelMenu.Button {
             (actor.has_style_class_name('today') ||
              actor.has_style_class_name('selected'));
 
-        actor.set_style(keepsAccentColor ? null : style);
+        // Calendar layout containers can expose non-St children. Only St widgets
+        // accept inline CSS through set_style().
+        if (typeof actor.set_style === 'function')
+            actor.set_style(keepsAccentColor ? null : style);
 
         if (typeof actor.get_children === 'function')
             actor.get_children().forEach(child => this._applyCalendarTextStyle(child, style));
