@@ -239,7 +239,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
 
         this.box.add_child(this.label);
         this.add_child(this.box);
-        
+
         // Apply initial color
         this._updateColor();
 
@@ -481,7 +481,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
     _addSettingsButton() {
         const settingsItem = new PopupMenu.PopupMenuItem(_('Settings'));
         settingsItem.add_style_class_name('settings-button-item');
-        
+
         settingsItem.connect('activate', () => {
             try {
                 this._extension.openPreferences();
@@ -490,7 +490,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
             }
             this.menu.close();
         });
-        
+
         this.menu.addMenuItem(settingsItem);
     }
 
@@ -1020,7 +1020,7 @@ export default class HijriDateDisplayExtension extends Extension {
         this._calendarTextColor = this._settings.get_string('calendar-text-color');
         this._useThemeCalendarTextColor =
             this._settings.get_boolean('use-theme-calendar-text-color');
-        
+
         this._addToPanel();
     }
 
@@ -1064,10 +1064,10 @@ export default class HijriDateDisplayExtension extends Extension {
         if (Main.panel.statusArea['hijri-date']) {
             Main.panel.statusArea['hijri-date'].destroy();
         }
-        
+
         Main.panel.addToStatusArea('hijri-date', this._indicator, boxIndex, boxName);
         this._indicator.menu.setSourceAlignment(0.5);
-        
+
         // Add spacer if needed
         if (this._spacing > 0) {
             if (!this._spacer) {

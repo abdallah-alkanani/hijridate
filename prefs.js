@@ -81,7 +81,7 @@ class ColorWheelClass extends Gtk.DrawingArea {
         this.onChange = onChange;
         this.currentColor = initialColor || '#ffffff';
         this._isDragging = false;
-        
+
         const hsv = this._hexToHsv(this.currentColor);
         this.hue = hsv.h;
         this.saturation = hsv.s;
@@ -123,12 +123,12 @@ class ColorWheelClass extends Gtk.DrawingArea {
             for (let r = 0; r < radius; r += 3) {
                 const sat = r / radius;
                 const rgb = this._hsvToRgb(angle, sat, this.value);
-                
+
                 cr.setSourceRGBA(rgb.r / 255, rgb.g / 255, rgb.b / 255, 1);
-                
+
                 const x = centerX + Math.cos((angle - 90) * Math.PI / 180) * r;
                 const y = centerY + Math.sin((angle - 90) * Math.PI / 180) * r;
-                
+
                 cr.arc(x, y, 2, 0, 2 * Math.PI);
                 cr.fill();
             }
@@ -168,7 +168,7 @@ class ColorWheelClass extends Gtk.DrawingArea {
         if (distance <= radius) {
             let angle = Math.atan2(dy, dx) * 180 / Math.PI + 90;
             if (angle < 0) angle += 360;
-            
+
             this.hue = angle;
             this.saturation = Math.min(distance / radius, 1);
 
@@ -200,7 +200,7 @@ class ColorWheelClass extends Gtk.DrawingArea {
         const c = v * s;
         const x = c * (1 - Math.abs((h / 60) % 2 - 1));
         const m = v - c;
-        
+
         let r, g, b;
         if (h >= 0 && h < 60) [r, g, b] = [c, x, 0];
         else if (h >= 60 && h < 120) [r, g, b] = [x, c, 0];
@@ -208,7 +208,7 @@ class ColorWheelClass extends Gtk.DrawingArea {
         else if (h >= 180 && h < 240) [r, g, b] = [0, x, c];
         else if (h >= 240 && h < 300) [r, g, b] = [x, 0, c];
         else [r, g, b] = [c, 0, x];
-        
+
         return {
             r: Math.round((r + m) * 255),
             g: Math.round((g + m) * 255),
@@ -220,11 +220,11 @@ class ColorWheelClass extends Gtk.DrawingArea {
         const r = parseInt(hex.slice(1, 3), 16) / 255;
         const g = parseInt(hex.slice(3, 5), 16) / 255;
         const b = parseInt(hex.slice(5, 7), 16) / 255;
-        
+
         const max = Math.max(r, g, b);
         const min = Math.min(r, g, b);
         const diff = max - min;
-        
+
         let h = 0;
         if (diff !== 0) {
             if (max === r) h = ((g - b) / diff) % 6;
@@ -233,10 +233,10 @@ class ColorWheelClass extends Gtk.DrawingArea {
         }
         h = Math.round(h * 60);
         if (h < 0) h += 360;
-        
+
         const s = max === 0 ? 0 : diff / max;
         const v = max;
-        
+
         return { h, s, v };
     }
 
@@ -356,7 +356,7 @@ export default class HijriDatePreferences extends ExtensionPreferences {
 
         window.add_css_class('hijri-prefs');
         this._applyColorSchemeClass(window);
-        
+
         const tr = raw =>
             Object.fromEntries(Object.entries(raw).map(([k, v]) => [k, _(v)]));
 
@@ -366,16 +366,16 @@ export default class HijriDatePreferences extends ExtensionPreferences {
         const CalendarMethodText  = tr(CalendarMethodTextRAW);
         const YearSuffixStyleText = tr(YearSuffixStyleTextRAW);
 
-        
-        const page = new Adw.PreferencesPage({ 
+
+        const page = new Adw.PreferencesPage({
             title: _('General Settings'),
             icon_name: 'preferences-system-symbolic'
         });
         page.add_css_class('compact-page');
         window.add(page);
-        
+
         // Add Appearance page
-        const appearancePage = new Adw.PreferencesPage({ 
+        const appearancePage = new Adw.PreferencesPage({
             title: _('Appearance'),
             icon_name: 'applications-graphics-symbolic'
         });
@@ -484,7 +484,7 @@ export default class HijriDatePreferences extends ExtensionPreferences {
 
         resetBtn.connect('clicked', () =>
             fmtEntry.text = '{day} {month} {year} {suffix}'
-        );     
+        );
 
         const offsetRow = new Adw.ActionRow({
             title: _('Hijri Date Adjustment'),
@@ -598,7 +598,7 @@ export default class HijriDatePreferences extends ExtensionPreferences {
         };
         yearSwitch.connect('notify::active', toggleSuffixSensitivity);
         toggleSuffixSensitivity();
-        
+
         const createColorExpander = (title, subtitle, colorKey, useThemeKey) => {
             const colorExpander = new Adw.ExpanderRow({
                 title,
