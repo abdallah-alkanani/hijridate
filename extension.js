@@ -953,10 +953,15 @@ class HijriDateButtonClass extends PanelMenu.Button {
             (actor.has_style_class_name('today') ||
              actor.has_style_class_name('selected'));
 
+        // A selected or current-day label inherits its foreground through the
+        // actor tree. Clear the full subtree instead of styling only its container.
+        if (keepsAccentColor)
+            style = null;
+
         // Calendar layout containers can expose non-St children. Only St widgets
         // accept inline CSS through set_style().
         if (typeof actor.set_style === 'function')
-            actor.set_style(keepsAccentColor ? null : style);
+            actor.set_style(style);
 
         if (typeof actor.get_children === 'function')
             actor.get_children().forEach(child => this._applyCalendarTextStyle(child, style));
