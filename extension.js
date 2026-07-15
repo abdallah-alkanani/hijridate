@@ -330,6 +330,9 @@ class HijriDateButtonClass extends PanelMenu.Button {
         });
 
         this.menu.addMenuItem(settingsItem);
+        this._settingsItem = settingsItem;
+        settingsItem.connect('style-changed', () => this._updateCalendarColor());
+        this._updateCalendarColor();
     }
 
     _addCalendar() {
@@ -897,10 +900,13 @@ class HijriDateButtonClass extends PanelMenu.Button {
 
     _updateCalendarColor() {
         const customColor = this._extension._calendarTextColor;
-        const hasCustomColor = /^#[0-9A-Fa-f]{6}$/.test(customColor);
-        const style = !this._extension._useThemeCalendarTextColor && hasCustomColor
-            ? `color: ${customColor};`
+        const usesCustomColor = !this._extension._useThemeCalendarTextColor &&
+            /^#[0-9A-Fa-f]{6}$/.test(customColor);
+        const themeColor = this._settingsItem
+            ? this._settingsItem.get_theme_node().get_foreground_color().to_string()
             : null;
+        const color = usesCustomColor ? customColor : themeColor;
+        const style = color ? `color: ${color};` : null;
         const textActors = [
             this._calendarMonthLabel,
             this._calendarYearLabel,
@@ -913,7 +919,11 @@ class HijriDateButtonClass extends PanelMenu.Button {
         for (const actor of textActors) {
             const keepsNativeForeground = actor.has_style_class_name('today') ||
                 actor.has_style_class_name('calendar-today') ||
-                actor.has_style_class_name('selected');
+                actor.has_style_class_name('selected') ||
+                (!usesCustomColor &&
+                    (actor.has_style_class_name('calendar-day-heading') ||
+                     actor.has_style_class_name('calendar-nonwork-day') ||
+                     actor.has_style_class_name('calendar-other-month-day')));
             actor.set_style(keepsNativeForeground ? null : style);
         }
     }
