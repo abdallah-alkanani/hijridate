@@ -244,7 +244,6 @@ class HijriDateButtonClass extends PanelMenu.Button {
         this._updateColor();
 
         this.add_style_class_name('hijri-date-button');
-        this.add_style_class_name('clock-display');
         this.menu.setSourceAlignment(0.5);
 
         this._addCalendar();
