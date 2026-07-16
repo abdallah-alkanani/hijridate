@@ -65,10 +65,6 @@ function isSameDay(left, right) {
         left.getDate() === right.getDate();
 }
 
-function isWorkDay(date) {
-    return !'06'.includes(date.getDay().toString());
-}
-
 function getCalendarId(method) {
     switch (method) {
         case CalendarMethod.CIVIL:
@@ -888,25 +884,9 @@ class HijriDateButtonClass extends PanelMenu.Button {
             const isCurrentMonth = cellParts.month === targetParts.month &&
                 cellParts.year === targetParts.year;
             const isToday = isSameDay(cellDate, baseDate);
-            let styleClass = 'hijri-calendar-day calendar-day';
-
-            if (isWorkDay(cellDate))
-                styleClass += ' calendar-weekday';
-            else
-                styleClass += ' calendar-weekend';
-
-            if (Math.floor(i / 7) === 0)
-                styleClass = `calendar-day-top ${styleClass}`;
-
-            const leftMost = this._calendarGrid.get_text_direction() === Clutter.TextDirection.RTL
-                ? i % 7 === 6
-                : i % 7 === 0;
-            if (leftMost)
-                styleClass = `calendar-day-left ${styleClass}`;
-
             const dayButton = new St.Button({
                 label: formatters.displayDay.format(displayDate),
-                style_class: styleClass,
+                style_class: 'hijri-calendar-day calendar-day',
                 x_align: Clutter.ActorAlign.CENTER,
                 y_align: Clutter.ActorAlign.CENTER,
                 can_focus: false,
