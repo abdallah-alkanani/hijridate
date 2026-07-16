@@ -617,6 +617,7 @@ export default class HijriDatePreferences extends ExtensionPreferences {
                 valign: Gtk.Align.CENTER,
             });
             useThemeRow.add_suffix(useThemeSwitch);
+            useThemeRow.activatable_widget = useThemeSwitch;
             settings.bind(useThemeKey, useThemeSwitch, 'active', Gio.SettingsBindFlags.DEFAULT);
             colorExpander.add_row(useThemeRow);
 

@@ -890,7 +890,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
                 x_align: Clutter.ActorAlign.CENTER,
                 y_align: Clutter.ActorAlign.CENTER,
                 can_focus: false,
-                reactive: false,
+                reactive: true,
                 track_hover: false
             });
 
@@ -946,7 +946,6 @@ class HijriDateButtonClass extends PanelMenu.Button {
 
         for (const actor of textActors) {
             const keepsNativeForeground = !usesCustomColor ||
-                actor.has_style_class_name('today') ||
                 actor.has_style_class_name('calendar-today') ||
                 actor.has_style_class_name('selected');
             actor.set_style(keepsNativeForeground ? null : style);
