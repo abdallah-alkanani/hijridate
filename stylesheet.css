@@ -126,12 +126,28 @@
 }
 
 /* Calendar weekday headings.
- * Note: no color is set here. We deliberately inherit the GNOME Shell
- * theme foreground color (the same one used by the stock GNOME calendar)
- * so weekday headings stay readable in both light and dark mode. Only
- * font styling is applied here, mirroring the upstream
- * `.calendar-day-base.calendar-day-heading` rule. */
-.hijri-calendar-weekday {
+ *
+ * Root cause of the "white weekday headings in light mode" bug:
+ * The stock GNOME 40-44 rule
+ *   `.calendar .calendar-day-base.calendar-day-heading { color: $insensitive_fg_color }`
+ * pins the heading color to the SCSS variable $insensitive_fg_color. Stock
+ * GNOME 40-44 ships the shell chrome as ALWAYS dark, so that resolves to a
+ * readable mid-grey on a dark popup. However, third-party / Ubuntu-Classic
+ * "light" shell themes correctly redefine $fg_color (which is why the day
+ * cells, that inherit $fg_color, are readable) but frequently FAIL to
+ * re-derive $insensitive_fg_color for the light variant — leaving the
+ * heading rule compiled to white/near-white, so the S M T W T F S row
+ * becomes invisible on a light background.
+ *
+ * Fix: force `color: inherit` on the heading with a selector of HIGHER
+ * specificity than the stock rule, so the heading takes the same inherited
+ * $fg_color the day cells already use (near-black in light themes, white in
+ * dark themes) instead of the botched $insensitive_fg_color. The scoped
+ * `.hijri-calendar` ancestor raises specificity to (0,4,0), beating the
+ * stock (0,3,0). Font styling mirrors the upstream `.calendar-day-heading`
+ * (height 16px, font-weight 600). `inherit` is honored by St in 40-44. */
+.hijri-calendar .hijri-calendar-weekday.calendar-day-base.calendar-day-heading {
+    color: inherit;
     text-align: center;
     margin: 2px;
     padding: 0;
@@ -154,14 +170,24 @@
 }
 
 /* Other-month days (the soft, non-bold days from the previous/next month
- * shown at the edges of the grid). We intentionally do NOT set a color here:
- * these actors inherit the GNOME Shell theme foreground color — the same
- * color used by the regular month days — so they stay readable in both
- * light and dark mode. They are only made "soft" via a lighter font weight,
- * mirroring the visual treatment of the stock GNOME calendar's
- * `.calendar-other-month-day`. */
-.hijri-calendar-day.other-month {
+ * shown at the edges of the grid). The stock GNOME 40-44 rule
+ *   `.calendar .calendar-other-month-day { color: transparentize($fg_color, 0.5) }`
+ * has the same vulnerability as the weekday-heading rule: on third-party
+ * "light" shell themes that fail to re-derive their calendar color
+ * variables for the light variant, `transparentize($fg_color, 0.5)`
+ * resolves to faint-white on a light background -> unreadable.
+ *
+ * Fix: force `color: inherit` (same inherited $fg_color the regular day
+ * cells use, so always readable in both light and dark) and soften the
+ * look with `opacity: 0.5` instead of a possibly-broken alpha color. The
+ * scoped `.hijri-calendar` ancestor raises specificity above the stock
+ * `.calendar .calendar-other-month-day` rule. Today cells never carry
+ * `other-month`, so this never fights the today accent. */
+.hijri-calendar .hijri-calendar-day.other-month,
+.hijri-calendar .hijri-calendar-day.other-month.calendar-other-month-day {
+    color: inherit;
     font-weight: normal;
+    opacity: 0.5;
 }
 
 .hijri-calendar-day.today {
