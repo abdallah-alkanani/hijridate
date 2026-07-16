@@ -939,17 +939,15 @@ class HijriDateButtonClass extends PanelMenu.Button {
         let bg = null;
         let cur = actor;
         while (cur) {
-            if (typeof cur.get_theme_node === 'function') {
-                let c = null;
-                try {
-                    c = cur.get_theme_node().get_background_color();
-                } catch (e) {
-                    c = null;
-                }
-                if (c && c.alpha >= 128) {
-                    bg = c;
-                    break;
-                }
+            let c = null;
+            try {
+                c = cur.get_theme_node().get_background_color();
+            } catch (e) {
+                c = null;
+            }
+            if (c && c.alpha >= 128) {
+                bg = c;
+                break;
             }
             cur = cur.get_parent();
         }
