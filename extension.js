@@ -334,14 +334,15 @@ class HijriDateButtonClass extends PanelMenu.Button {
     _addCalendar() {
         const calendarItem = new PopupMenu.PopupBaseMenuItem({
             activate: false,
-            reactive: false,
-            can_focus: false,
         });
-        calendarItem.add_style_class_name('hijri-calendar-item');
+        calendarItem.add_style_class_name('no-row-hover');
+        calendarItem.reactive = false;
+        calendarItem.track_hover = false;
+        calendarItem.can_focus = false;
 
         const calendarBox = new St.BoxLayout({
             vertical: true,
-            style_class: 'hijri-calendar calendar popup-menu-item',
+            style_class: 'hijri-calendar calendar',
             x_expand: true,
         });
         calendarItem.add_child(calendarBox);
@@ -363,7 +364,6 @@ class HijriDateButtonClass extends PanelMenu.Button {
             x_expand: true,
         });
         this._calendarHeaderCenterBox = new St.BoxLayout({
-            style_class: 'calendar-month-header',
             x_align: Clutter.ActorAlign.CENTER,
             y_align: Clutter.ActorAlign.CENTER,
         });
@@ -371,7 +371,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
         this._calendarHeader.add_child(this._calendarHeaderCenter);
 
         this._calendarMonthLabel = new St.Label({
-            style_class: 'hijri-calendar-header calendar-month-label',
+            style_class: 'hijri-calendar-header',
             x_align: Clutter.ActorAlign.CENTER,
             y_align: Clutter.ActorAlign.CENTER,
         });
@@ -386,7 +386,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
         this._calendarMonthButton.connect('clicked', () => this._toggleMonthPicker());
 
         this._calendarYearLabel = new St.Label({
-            style_class: 'hijri-calendar-header calendar-month-label',
+            style_class: 'hijri-calendar-header',
             x_align: Clutter.ActorAlign.CENTER,
             y_align: Clutter.ActorAlign.CENTER,
         });
@@ -404,7 +404,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
         this._calendarHeaderCenterBox.add_child(this._calendarYearButton);
 
         this._calendarTodayButton = new St.Button({
-            label: 'Today',
+            label: _('Today'),
             style_class: 'hijri-calendar-today-button',
             can_focus: true,
             reactive: true,
@@ -844,7 +844,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
             const isCurrentMonth = cellParts.month === targetParts.month &&
                 cellParts.year === targetParts.year;
             const isToday = isSameDay(cellDate, baseDate);
-            let styleClass = 'hijri-calendar-day calendar-day-base calendar-day';
+            const styleClass = 'hijri-calendar-day calendar-day-base calendar-day';
 
             const dayButton = new St.Button({
                 label: formatters.displayDay.format(displayDate),
@@ -907,8 +907,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
         ];
 
         if (usesCustomColor) {
-            if (this._calendarBox)
-                this._calendarBox.set_style(null);
+            this._calendarBox.set_style(null);
             const style = `color: ${customColor};`;
             for (const actor of textActors) {
                 const keepsNativeForeground =
@@ -925,7 +924,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
             actor.set_style(null);
 
         const fgColor = this._computeReadableForeground(this._calendarBox);
-        if (fgColor && this._calendarBox)
+        if (fgColor)
             this._calendarBox.set_style(`color: ${fgColor};`);
     }
 
