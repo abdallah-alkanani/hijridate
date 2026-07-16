@@ -127,12 +127,13 @@
 .hijri-calendar .hijri-calendar-day.current-month {
     color: -st-foreground-color;
     font-weight: 900;
+    font-size: 1.14em;
     opacity: 1;
 }
 
 .hijri-calendar-day.other-month {
     font-weight: normal;
-    opacity: 0.4;
+    opacity: 0.25;
 }
 
 .hijri-calendar-day.today {
