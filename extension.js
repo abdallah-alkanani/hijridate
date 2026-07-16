@@ -296,6 +296,14 @@ class HijriDateButtonClass extends PanelMenu.Button {
                     this._extension._useThemeTextColor = settings.get_boolean('use-theme-text-color');
                     this._updateColor();
                     break;
+                case 'calendar-text-color':
+                    this._extension._calendarTextColor = settings.get_string('calendar-text-color');
+                    this._updateCalendarColor();
+                    break;
+                case 'use-theme-calendar-text-color':
+                    this._extension._useThemeCalendarTextColor = settings.get_boolean('use-theme-calendar-text-color');
+                    this._updateCalendarColor();
+                    break;
             }
         });
 
@@ -325,13 +333,12 @@ class HijriDateButtonClass extends PanelMenu.Button {
     }
 
     _addCalendar() {
-        const calendarItem = new St.Widget({
-            layout_manager: new Clutter.BinLayout(),
+        const calendarItem = new PopupMenu.PopupBaseMenuItem({
+            activate: false,
             reactive: false,
             can_focus: false,
         });
         calendarItem.add_style_class_name('hijri-calendar-item');
-        calendarItem._delegate = this;
 
         const calendarBox = new St.BoxLayout({
             vertical: true,
@@ -465,8 +472,9 @@ class HijriDateButtonClass extends PanelMenu.Button {
         });
         calendarBox.add_child(this._calendarGrid);
 
-        this.menu.box.add_child(calendarItem);
+        this.menu.addMenuItem(calendarItem);
         this._updateCalendar();
+        this._updateCalendarColor();
     }
 
     _syncHeaderSpacer() {
@@ -597,6 +605,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
             const column = isArabic ? (cols - 1) - (i % cols) : (i % cols);
             this._monthPickerGridLayout.attach(button, column, Math.floor(i / cols), 1, 1);
         }
+        this._updateCalendarColor();
     }
 
     _renderYearPicker(formatters, selectedYear) {
@@ -634,6 +643,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
             button.connect('clicked', () => this._selectYear(year));
             this._yearPickerList.add_child(button);
         }
+        this._updateCalendarColor();
     }
 
     _onYearPickerScroll(_actor, event) {
@@ -861,6 +871,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
 
             this._calendarGridLayout.attach(dayButton, i % 7, Math.floor(i / 7) + 1, 1, 1);
         }
+        this._updateCalendarColor();
     }
 
     _updateDate() {
@@ -883,6 +894,29 @@ class HijriDateButtonClass extends PanelMenu.Button {
             ? null
             : `color: ${this._extension._textColor};`;
         this.label.set_style(style);
+    }
+
+    _updateCalendarColor() {
+        const customColor = this._extension._calendarTextColor;
+        const usesCustomColor = !this._extension._useThemeCalendarTextColor &&
+            /^#[0-9A-Fa-f]{6}$/.test(customColor);
+        const style = usesCustomColor ? `color: ${customColor};` : null;
+        const textActors = [
+            this._calendarMonthLabel,
+            this._calendarYearLabel,
+            this._calendarTodayButton,
+            ...this._monthPickerGrid.get_children(),
+            ...this._yearPickerList.get_children(),
+            ...this._calendarGrid.get_children(),
+        ];
+
+        for (const actor of textActors) {
+            const keepsNativeForeground = !usesCustomColor ||
+                actor.has_style_class_name('today') ||
+                actor.has_style_class_name('calendar-today') ||
+                actor.has_style_class_name('selected');
+            actor.set_style(keepsNativeForeground ? null : style);
+        }
     }
 
     destroy() {
@@ -939,6 +973,10 @@ class Extension40to44 {
         this._dateOffset      = this._settings.get_int('date-offset');
         this._textColor       = this._settings.get_string('text-color');
         this._useThemeTextColor = this._settings.get_boolean('use-theme-text-color');
+        this._calendarTextColor = this._settings.get_string('calendar-text-color');
+        this._useThemeCalendarTextColor =
+            this._settings.get_boolean('use-theme-calendar-text-color');
+
         this._addToPanel();
     }
 
