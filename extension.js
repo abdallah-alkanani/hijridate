@@ -50,6 +50,10 @@ function isSameDay(left, right) {
         left.getDate() === right.getDate();
 }
 
+function isWorkDay(date) {
+    return !'06'.includes(date.getDay().toString());
+}
+
 function getCalendarId(method) {
     switch (method) {
         case CalendarMethod.CIVIL:
@@ -321,15 +325,17 @@ class HijriDateButtonClass extends PanelMenu.Button {
     }
 
     _addCalendar() {
-        const calendarItem = new PopupMenu.PopupBaseMenuItem({ activate: false });
-        calendarItem.add_style_class_name('no-row-hover');
-        calendarItem.reactive = false;
-        calendarItem.track_hover = false;
-        calendarItem.can_focus = false;
+        const calendarItem = new St.Widget({
+            layout_manager: new Clutter.BinLayout(),
+            reactive: false,
+            can_focus: false,
+        });
+        calendarItem.add_style_class_name('hijri-calendar-item');
+        calendarItem._delegate = this;
 
         const calendarBox = new St.BoxLayout({
             vertical: true,
-            style_class: 'hijri-calendar',
+            style_class: 'hijri-calendar calendar popup-menu-item',
             x_expand: true,
         });
         calendarItem.add_child(calendarBox);
@@ -350,6 +356,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
             x_expand: true,
         });
         this._calendarHeaderCenterBox = new St.BoxLayout({
+            style_class: 'calendar-month-header',
             x_align: Clutter.ActorAlign.CENTER,
             y_align: Clutter.ActorAlign.CENTER,
         });
@@ -357,7 +364,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
         this._calendarHeader.add_child(this._calendarHeaderCenter);
 
         this._calendarMonthLabel = new St.Label({
-            style_class: 'hijri-calendar-header',
+            style_class: 'hijri-calendar-header calendar-month-label',
             x_align: Clutter.ActorAlign.CENTER,
             y_align: Clutter.ActorAlign.CENTER,
         });
@@ -372,7 +379,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
         this._calendarMonthButton.connect('clicked', () => this._toggleMonthPicker());
 
         this._calendarYearLabel = new St.Label({
-            style_class: 'hijri-calendar-header',
+            style_class: 'hijri-calendar-header calendar-month-label',
             x_align: Clutter.ActorAlign.CENTER,
             y_align: Clutter.ActorAlign.CENTER,
         });
@@ -390,7 +397,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
         this._calendarHeaderCenterBox.add_child(this._calendarYearButton);
 
         this._calendarTodayButton = new St.Button({
-            label: _('Today'),
+            label: 'Today 3',
             style_class: 'hijri-calendar-today-button',
             can_focus: true,
             reactive: true,
@@ -453,12 +460,12 @@ class HijriDateButtonClass extends PanelMenu.Button {
 
         this._calendarGrid = new St.Widget({
             layout_manager: this._calendarGridLayout,
-            style_class: 'hijri-calendar-grid calendar',
+            style_class: 'hijri-calendar-grid',
             x_expand: true,
         });
         calendarBox.add_child(this._calendarGrid);
 
-        this.menu.addMenuItem(calendarItem);
+        this.menu.box.add_child(calendarItem);
         this._updateCalendar();
     }
 
@@ -801,7 +808,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
         weekdayLabels.forEach((label, index) => {
             const dayLabel = new St.Label({
                 text: label,
-                style_class: 'hijri-calendar-weekday calendar-day-heading',
+                style_class: 'hijri-calendar-weekday calendar-day-base calendar-day-heading',
                 x_align: Clutter.ActorAlign.CENTER,
                 y_align: Clutter.ActorAlign.CENTER,
             });
@@ -817,9 +824,25 @@ class HijriDateButtonClass extends PanelMenu.Button {
             const isCurrentMonth = cellParts.month === targetParts.month &&
                 cellParts.year === targetParts.year;
             const isToday = isSameDay(cellDate, baseDate);
+            let styleClass = 'hijri-calendar-day calendar-day-base calendar-day';
+
+            if (isWorkDay(cellDate))
+                styleClass += ' calendar-work-day';
+            else
+                styleClass += ' calendar-nonwork-day';
+
+            if (Math.floor(i / 7) === 0)
+                styleClass = `calendar-day-top ${styleClass}`;
+
+            const leftMost = this._calendarGrid.get_text_direction() === Clutter.TextDirection.RTL
+                ? i % 7 === 6
+                : i % 7 === 0;
+            if (leftMost)
+                styleClass = `calendar-day-left ${styleClass}`;
+
             const dayButton = new St.Button({
                 label: formatters.displayDay.format(displayDate),
-                style_class: 'hijri-calendar-day calendar-day',
+                style_class: styleClass,
                 x_align: Clutter.ActorAlign.CENTER,
                 y_align: Clutter.ActorAlign.CENTER,
                 can_focus: false,
@@ -829,7 +852,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
 
             if (!isCurrentMonth) {
                 dayButton.add_style_class_name('other-month');
-                dayButton.add_style_class_name('calendar-other-month');
+                dayButton.add_style_class_name('calendar-other-month-day');
             }
             if (isToday) {
                 dayButton.add_style_class_name('today');
