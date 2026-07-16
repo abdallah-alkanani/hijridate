@@ -127,6 +127,7 @@
 
 .hijri-calendar-day.other-month {
     font-weight: normal;
+    opacity: 0.4;
 }
 
 .hijri-calendar-day.today {
