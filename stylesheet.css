@@ -4,28 +4,10 @@
    Panel button and popup menu styles
 ─────────────────────────────────────────────────────────── */
 
-/* Helper classes */
-.no-row-hover,
-.no-row-hover:hover,
-.no-row-hover:selected,
-.no-row-hover:focus {
-    background-color: transparent;
-}
-
-
 /* Panel button */
 .hijri-date-button {
     padding: 0 6px;
     transition-duration: 150ms;
-}
-
-.hijri-date-button:hover,
-.hijri-date-button:focus {
-    background-color: rgba(255,255,255,0.05);
-}
-
-.hijri-date-button:active {
-    background-color: rgba(255,255,255,0.08);
 }
 
 .hijri-date-label {
@@ -38,6 +20,13 @@
 /* Settings button in popup */
 .settings-button-item {
     font-weight: 500;
+}
+
+.hijri-calendar-item,
+.hijri-calendar-item:hover,
+.hijri-calendar-item:selected,
+.hijri-calendar-item:focus {
+    background-color: transparent;
 }
 
 /* Popup menu positioning */
@@ -131,11 +120,66 @@
 
 .hijri-calendar-month-button.selected,
 .hijri-calendar-year-button.selected {
-    background-color: -st-accent-color;
-    color: -st-accent-fg-color;
+    /* GNOME 40-44 do not expose the later -st-accent-* CSS values. */
+    background-color: rgba(128,128,128,0.24);
+    font-weight: 600;
+}
+
+/* Calendar weekday headings.
+ *
+ * No `color` is declared here. The heading label carries only the
+ * `hijri-calendar-weekday` class (the stock `calendar-day-base
+ * calendar-day-heading` classes are deliberately NOT used — see
+ * extension.js — because the stock rule pins the heading to
+ * $insensitive_fg_color, which is unreliable in third-party "light" themes).
+ *
+ * The heading therefore has NO explicit `color` rule and INHERITS the
+ * `color` set at runtime in _updateCalendarColor() on the common ancestor
+ * `.hijri-calendar` (calendarBox). That color is chosen by luminance against
+ * the actual popup background and reproduces the stock $fg_color in correct
+ * themes, so the heading is readable in both light and dark themes without
+ * depending on $fg_color or $insensitive_fg_color. Only font/size styling
+ * is defined here, mirroring the upstream .calendar-day-heading. */
+.hijri-calendar .hijri-calendar-weekday {
+    text-align: center;
+    margin: 2px;
+    padding: 0;
+    height: 16px;
     font-weight: 600;
 }
 
 .hijri-calendar-grid {
     margin-top: 2px;
+}
+
+.hijri-calendar-day {
+    border-radius: 999px;
+    height: 3em;
+    width: 3em;
+    margin: 2px;
+    padding: 0;
+    font-weight: 600;
+    text-align: center;
+}
+
+/* Other-month days (the soft, non-bold days from the previous/next month
+ * shown at the edges of the grid). We intentionally do NOT override color
+ * here: the stock GNOME 40-44 rule
+ *   `.calendar .calendar-other-month-day { color: transparentize($fg_color, 0.5) }`
+ * already produces a readable, softened color in BOTH light and dark
+ * variants (it is derived from $fg_color, not the unreliable
+ * $insensitive_fg_color). A previous fix that used `color: inherit` here
+ * broke this (it copied a dark-compiled white ancestor color, making
+ * other-month days white-on-white in light themes). We only soften the
+ * weight and reduce opacity so other-month days are clearly fainter than
+ * the current-month days; the color comes from the stock rule. */
+.hijri-calendar .hijri-calendar-day.other-month,
+.hijri-calendar .hijri-calendar-day.other-month.calendar-other-month-day {
+    font-weight: normal;
+    opacity: 0.4;
+}
+
+.hijri-calendar-day.today {
+    font-weight: 800;
+    border-radius: 999px;
 }

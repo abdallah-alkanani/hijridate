@@ -50,6 +50,10 @@ function isSameDay(left, right) {
         left.getDate() === right.getDate();
 }
 
+function isWorkDay(date) {
+    return !'06'.includes(date.getDay().toString());
+}
+
 function getCalendarId(method) {
     switch (method) {
         case CalendarMethod.CIVIL:
@@ -232,8 +236,14 @@ class HijriDateButtonClass extends PanelMenu.Button {
         this._addSettingsButton();
 
         this._menuOpenChangedId = this.menu.connect('open-state-changed', (menu, isOpen) => {
-            if (!isOpen)
+            if (isOpen) {
+                /* The calendar actors are only reliably staged once the menu
+                 * is open, so this is the safe moment to read resolved theme
+                 * colors and apply them to the weekday headings. */
+                this._updateCalendarColor();
+            } else {
                 this._hidePickers();
+            }
         });
 
         this._settingsChangedId = this._extension._settings.connect('changed', (settings, key) => {
@@ -329,18 +339,20 @@ class HijriDateButtonClass extends PanelMenu.Button {
     }
 
     _addCalendar() {
-        const calendarItem = new PopupMenu.PopupBaseMenuItem({ activate: false });
-        calendarItem.add_style_class_name('no-row-hover');
-        calendarItem.reactive = false;
-        calendarItem.track_hover = false;
-        calendarItem.can_focus = false;
+        const calendarItem = new PopupMenu.PopupBaseMenuItem({
+            activate: false,
+            reactive: false,
+            can_focus: false,
+        });
+        calendarItem.add_style_class_name('hijri-calendar-item');
 
         const calendarBox = new St.BoxLayout({
             vertical: true,
-            style_class: 'hijri-calendar calendar',
+            style_class: 'hijri-calendar calendar popup-menu-item',
             x_expand: true,
         });
         calendarItem.add_child(calendarBox);
+        this._calendarBox = calendarBox;
 
         this._calendarHeader = new St.BoxLayout({
             style_class: 'hijri-calendar-header-row',
@@ -358,6 +370,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
             x_expand: true,
         });
         this._calendarHeaderCenterBox = new St.BoxLayout({
+            style_class: 'calendar-month-header',
             x_align: Clutter.ActorAlign.CENTER,
             y_align: Clutter.ActorAlign.CENTER,
         });
@@ -365,7 +378,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
         this._calendarHeader.add_child(this._calendarHeaderCenter);
 
         this._calendarMonthLabel = new St.Label({
-            style_class: 'hijri-calendar-header',
+            style_class: 'hijri-calendar-header calendar-month-label',
             x_align: Clutter.ActorAlign.CENTER,
             y_align: Clutter.ActorAlign.CENTER,
         });
@@ -380,7 +393,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
         this._calendarMonthButton.connect('clicked', () => this._toggleMonthPicker());
 
         this._calendarYearLabel = new St.Label({
-            style_class: 'hijri-calendar-header',
+            style_class: 'hijri-calendar-header calendar-month-label',
             x_align: Clutter.ActorAlign.CENTER,
             y_align: Clutter.ActorAlign.CENTER,
         });
@@ -398,7 +411,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
         this._calendarHeaderCenterBox.add_child(this._calendarYearButton);
 
         this._calendarTodayButton = new St.Button({
-            label: _('Today'),
+            label: 'Today',
             style_class: 'hijri-calendar-today-button',
             can_focus: true,
             reactive: true,
@@ -467,7 +480,6 @@ class HijriDateButtonClass extends PanelMenu.Button {
         calendarBox.add_child(this._calendarGrid);
 
         this.menu.addMenuItem(calendarItem);
-
         this._updateCalendar();
         this._updateCalendarColor();
     }
@@ -791,6 +803,14 @@ class HijriDateButtonClass extends PanelMenu.Button {
         if (this._yearPickerBox.visible)
             this._renderYearPicker(formatters, targetParts.year);
 
+        /* Sunday-first grid (matches the 45-50 version of this extension).
+         * The week always starts on Sunday regardless of locale, and the
+         * layout is simple left-to-right (no RTL column mirror) — the same
+         * approach used by the 45-50 build, where the Arabic weekday letters
+         * render correctly. An earlier version mirrored columns with a
+         * `6 - (7 + dow - weekStart) % 7` formula for RTL, but that scrambled
+         * the Arabic heading letters; reverting to the simple LTR layout
+         * fixes it. */
         const firstWeekday = firstOfDisplayDate.getDay();
         const gridStartDate = new Date(firstOfDisplayDate);
         gridStartDate.setDate(gridStartDate.getDate() - firstWeekday);
@@ -810,14 +830,35 @@ class HijriDateButtonClass extends PanelMenu.Button {
             weekdayLabels.push(weekdayFormatter.format(weekdayDate));
         }
 
+        /* Weekday heading labels.
+         *
+         * NOTE: we deliberately do NOT carry the stock GNOME classes
+         * `calendar-day-base calendar-day-heading` here. The stock rule
+         *   .calendar .calendar-day-base.calendar-day-heading { color: $insensitive_fg_color; }
+         * pins the heading color to $insensitive_fg_color, which is
+         * UNRELIABLE in third-party "light" shell themes (it compiles to
+         * white/near-white and no theme override targets the long (0,3,0)
+         * heading selector, so headings render white-on-white). By using only
+         * our own `hijri-calendar-weekday` class, no stock color rule applies.
+         * The heading then INHERITS the explicit `color` that
+         * _updateCalendarColor() sets on the .hijri-calendar container
+         * (calendarBox) — chosen by luminance against the actual popup
+         * background, so it is readable in both light and dark themes
+         * without depending on $fg_color or $insensitive_fg_color.
+         *
+         * The headings are attached left-to-right (column = index), matching
+         * the 45-50 build; this is what makes the Arabic weekday letters
+         * render in the correct order. */
+        this._weekdayLabelActors = [];
         weekdayLabels.forEach((label, index) => {
             const dayLabel = new St.Label({
                 text: label,
-                style_class: 'calendar-day-base calendar-day-heading',
+                style_class: 'hijri-calendar-weekday',
                 x_align: Clutter.ActorAlign.CENTER,
                 y_align: Clutter.ActorAlign.CENTER,
             });
             this._calendarGridLayout.attach(dayLabel, index, 0, 1, 1);
+            this._weekdayLabelActors.push(dayLabel);
         });
 
         for (let i = 0; i < 42; i++) {
@@ -829,21 +870,46 @@ class HijriDateButtonClass extends PanelMenu.Button {
             const isCurrentMonth = cellParts.month === targetParts.month &&
                 cellParts.year === targetParts.year;
             const isToday = isSameDay(cellDate, baseDate);
+            let styleClass = 'hijri-calendar-day calendar-day-base calendar-day';
+
+            /* Use the extension's own calendar-weekday / calendar-weekend
+             * classes (NOT the stock calendar-work-day / calendar-nonwork-day
+             * classes). The stock .calendar-nonwork-day rule gives weekends a
+             * different (muted) color via $insensitive_fg_color; we want
+             * weekdays and weekends to share the SAME color, with only
+             * current-month vs other-month differing. The custom classes
+             * have no color rules in stylesheet.css, so both inherit the same
+             * foreground from the calendar container. */
+            if (isWorkDay(cellDate))
+                styleClass += ' calendar-weekday';
+            else
+                styleClass += ' calendar-weekend';
+
+            if (Math.floor(i / 7) === 0)
+                styleClass = `calendar-day-top ${styleClass}`;
+
+            const leftMost = this._calendarGrid.get_text_direction() === Clutter.TextDirection.RTL
+                ? i % 7 === 6
+                : i % 7 === 0;
+            if (leftMost)
+                styleClass = `calendar-day-left ${styleClass}`;
 
             const dayButton = new St.Button({
                 label: formatters.displayDay.format(displayDate),
-                style_class: 'calendar-day-base calendar-day',
+                style_class: styleClass,
                 x_align: Clutter.ActorAlign.CENTER,
                 y_align: Clutter.ActorAlign.CENTER,
                 can_focus: false,
-                reactive: true,
+                reactive: false,
                 track_hover: false,
             });
 
             if (!isCurrentMonth) {
+                dayButton.add_style_class_name('other-month');
                 dayButton.add_style_class_name('calendar-other-month-day');
             }
             if (isToday) {
+                dayButton.add_style_class_name('today');
                 dayButton.add_style_class_name('calendar-today');
             }
 
@@ -878,7 +944,10 @@ class HijriDateButtonClass extends PanelMenu.Button {
         const customColor = this._extension._calendarTextColor;
         const usesCustomColor = !this._extension._useThemeCalendarTextColor &&
             /^#[0-9A-Fa-f]{6}$/.test(customColor);
-        const style = usesCustomColor ? `color: ${customColor};` : null;
+
+        /* All calendar text actors that may carry a per-actor inline color.
+         * The 7 weekday heading labels live in the same grid as the 42 day
+         * buttons, so this._calendarGrid.get_children() covers them too. */
         const textActors = [
             this._calendarMonthLabel,
             this._calendarYearLabel,
@@ -888,12 +957,113 @@ class HijriDateButtonClass extends PanelMenu.Button {
             ...this._calendarGrid.get_children(),
         ];
 
-        for (const actor of textActors) {
-            const keepsNativeForeground = !usesCustomColor ||
-                actor.has_style_class_name('calendar-today') ||
-                actor.has_style_class_name('selected');
-            actor.set_style(keepsNativeForeground ? null : style);
+        if (usesCustomColor) {
+            /* Toggle OFF: the user's chosen color is applied to every calendar
+             * text actor EXCEPT "today"/"selected", which keep their native
+             * accent foreground (white-on-accent) so they stay readable. */
+            if (this._calendarBox)
+                this._calendarBox.set_style(null);
+            const style = `color: ${customColor};`;
+            for (const actor of textActors) {
+                const keepsNativeForeground =
+                    actor.has_style_class_name &&
+                    (actor.has_style_class_name('today') ||
+                     actor.has_style_class_name('calendar-today') ||
+                     actor.has_style_class_name('selected'));
+                actor.set_style(keepsNativeForeground ? null : style);
+            }
+            return;
         }
+
+        /* Toggle ON (default): behave like the stock GNOME calendar, i.e. be
+         * READABLE in both light and dark shell themes.
+         *
+         * We CANNOT rely on inheriting $fg_color from .popup-menu: many
+         * third-party "light" shell themes ship a dark-compiled CSS where
+         * $fg_color is white, so every actor with no explicit `color` rule
+         * (weekday headings, work-day numbers, the Today button, the month/
+         * year labels) renders white-on-white. We also cannot rely on
+         * $insensitive_fg_color: in those same themes it is unreliable.
+         *
+         * The robust, theme-agnostic fix: set ONE explicit `color` on the
+         * common ancestor .hijri-calendar (calendarBox) and let every
+         * descendant that has no explicit `color` rule of its own INHERIT it.
+         * st_theme_node_get_foreground_color (st-theme-node.c) stops at the
+         * first node that has an explicit `color` declaration and never walks
+         * further up to the broken .popup-menu/$fg_color. Descendants WITH
+         * their own explicit color (weekend .calendar-nonwork-day, other-month
+         * .calendar-other-month-day, today .calendar-today) keep their own
+         * already-readable colors and are untouched.
+         *
+         * The color we set reproduces the STOCK $fg_color exactly in correct
+         * themes — light variant: transparentize(black, 0.2) = rgba(0,0,0,0.8);
+         * dark variant: white = rgba(255,255,255,1) — and we pick the right
+         * member of the pair from the ACTUAL rendered popup background
+         * luminance, so the choice never depends on $fg_color or
+         * $insensitive_fg_color being correct. In a correct theme this is a
+         * no-op visually; in a broken theme it makes the calendar readable. */
+        for (const actor of textActors)
+            actor.set_style(null);
+
+        const fgColor = this._computeReadableForeground(this._calendarBox);
+        if (fgColor && this._calendarBox)
+            this._calendarBox.set_style(`color: ${fgColor};`);
+        /* If fgColor is null the actors are not staged yet (menu closed):
+         * keep any previously set color and let the menu 'open-state-changed'
+         * handler recompute once they are staged. */
+    }
+
+    /* Pick a foreground color that is readable against the actual popup
+     * background, reproducing the stock $fg_color in correct themes.
+     *
+     * st_widget_get_theme_node() (st-widget.c) documents: "it is a fatal
+     * error to call this on a widget that is not been added to a stage"; when
+     * called unstaged it g_critical's and returns an empty node, so we guard
+     * with get_stage() and bail out (return null) when not staged.
+     *
+     * st_theme_node_get_background_color(node, &color) reads a ClutterColor
+     * (guint8 0-255 fields). calendarBox is a `card(flat)` -> transparent, so
+     * we walk up the parent chain to the first effectively-opaque ancestor
+     * (the .popup-menu-content) which paints the visible popup background. */
+    _computeReadableForeground(actor) {
+        if (!actor || !actor.get_stage())
+            return null;
+
+        let bg = null;
+        let cur = actor;
+        while (cur) {
+            if (typeof cur.get_theme_node === 'function') {
+                let c = null;
+                try {
+                    c = cur.get_theme_node().get_background_color();
+                } catch (e) {
+                    c = null;
+                }
+                if (c && c.alpha >= 128) {
+                    bg = c;
+                    break;
+                }
+            }
+            cur = cur.get_parent();
+        }
+        if (!bg)
+            return null;
+
+        /* Relative luminance per WCAG. ClutterColor channels are 0-255 ints. */
+        const channel = (v) => {
+            const s = v / 255;
+            return s <= 0.03928 ? s / 12.92
+                                : Math.pow((s + 0.055) / 1.055, 2.4);
+        };
+        const L = 0.2126 * channel(bg.red) +
+                  0.7152 * channel(bg.green) +
+                  0.0722 * channel(bg.blue);
+
+        /* 0.179 is the luminance at which black and white text have equal
+         * contrast against the background. Above it the background is "light"
+         * -> use the stock light $fg_color (rgba(0,0,0,0.8)); below it -> the
+         * stock dark $fg_color (white). */
+        return L >= 0.179 ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 1)';
     }
 
     destroy() {
