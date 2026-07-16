@@ -236,8 +236,14 @@ class HijriDateButtonClass extends PanelMenu.Button {
         this._addSettingsButton();
 
         this._menuOpenChangedId = this.menu.connect('open-state-changed', (menu, isOpen) => {
-            if (!isOpen)
+            if (isOpen) {
+                /* The calendar actors are only reliably staged once the menu
+                 * is open, so this is the safe moment to read resolved theme
+                 * colors and apply them to the weekday headings. */
+                this._updateCalendarColor();
+            } else {
                 this._hidePickers();
+            }
         });
 
         this._settingsChangedId = this._extension._settings.connect('changed', (settings, key) => {
@@ -815,14 +821,29 @@ class HijriDateButtonClass extends PanelMenu.Button {
             weekdayLabels.push(weekdayFormatter.format(weekdayDate));
         }
 
+        /* Weekday heading labels.
+         *
+         * NOTE: we deliberately do NOT carry the stock GNOME classes
+         * `calendar-day-base calendar-day-heading` here. The stock rule
+         *   .calendar .calendar-day-base.calendar-day-heading { color: $insensitive_fg_color; }
+         * pins the heading color to the SCSS variable $insensitive_fg_color,
+         * which many third-party "light" shell themes fail to re-derive for
+         * the light variant, leaving the headings white-on-white. By using
+         * only our own `hijri-calendar-weekday` class, no stock color rule
+         * applies. The color is then set explicitly in _updateCalendarColor()
+         * by copying the resolved foreground color of a real month day cell
+         * (which is readable in both light and dark themes), so the heading
+         * always matches the day cells. See _updateCalendarColor. */
+        this._weekdayLabelActors = [];
         weekdayLabels.forEach((label, index) => {
             const dayLabel = new St.Label({
                 text: label,
-                style_class: 'hijri-calendar-weekday calendar-day-base calendar-day-heading',
+                style_class: 'hijri-calendar-weekday',
                 x_align: Clutter.ActorAlign.CENTER,
                 y_align: Clutter.ActorAlign.CENTER,
             });
             this._calendarGridLayout.attach(dayLabel, index, 0, 1, 1);
+            this._weekdayLabelActors.push(dayLabel);
         });
 
         for (let i = 0; i < 42; i++) {
@@ -901,6 +922,10 @@ class HijriDateButtonClass extends PanelMenu.Button {
         const usesCustomColor = !this._extension._useThemeCalendarTextColor &&
             /^#[0-9A-Fa-f]{6}$/.test(customColor);
         const style = usesCustomColor ? `color: ${customColor};` : null;
+
+        /* Standard text actors: month/year labels, today button, picker
+         * buttons, and all calendar-grid children (which includes the 7
+         * weekday heading labels at row 0 and the 42 day buttons). */
         const textActors = [
             this._calendarMonthLabel,
             this._calendarYearLabel,
@@ -918,15 +943,106 @@ class HijriDateButtonClass extends PanelMenu.Button {
             /* When applying a custom color, never override the foreground of
              * "today" (which is white-on-accent by default) and the picker's
              * selected item; they need to stay readable against their own
-             * background. Every other actor — weekday headings included —
-             * receives the same user-chosen color, matching how the stock
-             * GNOME Shell calendar handles light/dark mode. */
+             * background. Every other actor receives the same user-chosen
+             * color, matching how the stock GNOME Shell calendar handles
+             * light/dark mode. */
             const keepsNativeForeground =
                 actor.has_style_class_name('today') ||
                 actor.has_style_class_name('calendar-today') ||
                 actor.has_style_class_name('selected');
             actor.set_style(keepsNativeForeground ? null : style);
         }
+
+        /* ── Weekday heading color ──────────────────────────────────────
+         *
+         * We cannot rely on the shell theme for the weekday heading color:
+         *   - The stock rule `.calendar .calendar-day-base.calendar-day-heading
+         *     { color: $insensitive_fg_color }` is frequently botched to
+         *     white/near-white by third-party "light" shell themes that
+         *     fail to re-derive $insensitive_fg_color for the light variant.
+         *   - `color: inherit` is NOT a safe substitute in St 40-44: it walks
+         *     the parent chain looking for an EXPLICIT color, and in those
+         *     broken light themes one of the ancestors (.calendar /
+         *     .popup-menu-item / .popup-menu) carries an explicit dark-
+         *     compiled white, so `inherit` resolves to white too.
+         *
+         * The robust, theme-agnostic fix: read the RESOLVED foreground
+         * color of a real month day cell (the day buttons render correctly in
+         * both light and dark themes — the user confirmed this) and copy it
+         * onto each weekday heading as an explicit inline color. This makes
+         * the heading match the day cells exactly, regardless of what the
+         * theme did (or didn't do) with $insensitive_fg_color.
+         *
+         * get_theme_node() requires the actor to be staged (a g_critical is
+         * emitted otherwise and an empty node returning black is returned),
+         * so this is only reliable once the menu is open. The menu
+         * 'open-state-changed' handler above re-invokes us on open, and
+         * _updateCalendar already calls us after rebuilding the grid.
+         */
+        if (this._weekdayLabelActors && this._weekdayLabelActors.length) {
+            let headingStyle = null;
+
+            if (usesCustomColor) {
+                /* Custom color: apply it to headings too (consistent with the
+                 * other actors above), so the whole calendar shares one color. */
+                headingStyle = style;
+            } else {
+                /* Use-theme: copy a day cell's resolved foreground. */
+                const dayCell = this._findReadableDayCell();
+                if (dayCell) {
+                    try {
+                        const node = dayCell.get_theme_node();
+                        const c = node.get_foreground_color();
+                        /* Clutter.Color fields are 0-255 ints. */
+                        const a = c.alpha / 255;
+                        headingStyle =
+                            `color: rgba(${c.red}, ${c.green}, ${c.blue}, ${a});`;
+                    } catch (e) {
+                        headingStyle = null;
+                    }
+                }
+            }
+
+            for (const label of this._weekdayLabelActors) {
+                /* Never override the today accent (a heading is never today,
+                 * but be defensive). */
+                const keepsNativeForeground =
+                    label.has_style_class_name('today') ||
+                    label.has_style_class_name('calendar-today');
+                label.set_style(keepsNativeForeground ? null : headingStyle);
+            }
+        }
+    }
+
+    /* Find a normal month work-day cell whose resolved foreground color we
+     * can copy onto the weekday headings. We prefer a plain calendar-work-day
+     * of the current month (not other-month, not today), because that is the
+     * cell the user considers "readable" in both light and dark themes. */
+    _findReadableDayCell() {
+        const children = this._calendarGrid.get_children();
+        for (const child of children) {
+            if (!child.has_style_class_name)
+                continue;
+            if (child.has_style_class_name('calendar-day') &&
+                !child.has_style_class_name('other-month') &&
+                !child.has_style_class_name('today') &&
+                !child.has_style_class_name('calendar-today') &&
+                child.has_style_class_name('calendar-work-day')) {
+                return child;
+            }
+        }
+        /* Fallback: any non-other-month day cell. */
+        for (const child of children) {
+            if (!child.has_style_class_name)
+                continue;
+            if (child.has_style_class_name('calendar-day') &&
+                !child.has_style_class_name('other-month') &&
+                !child.has_style_class_name('today') &&
+                !child.has_style_class_name('calendar-today')) {
+                return child;
+            }
+        }
+        return null;
     }
 
     destroy() {
