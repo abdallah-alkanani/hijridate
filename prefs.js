@@ -775,7 +775,7 @@ function _buildSharedUI(container, settings, mode = 'all') {
         const hexLabel = new Gtk.Label({ label: _('Hex Code:') });
         hexEntry = new Gtk.Entry({
             text: settings.get_string(colorKey),
-            placeholder_text: '#rrggbb',
+            placeholder_text: '#ffffff',
             max_length: 7,
             width_chars: 8,
         });
@@ -834,7 +834,6 @@ function _buildSharedUI(container, settings, mode = 'all') {
             valign: Gtk.Align.CENTER,
         });
         useThemeRow.add_suffix(useThemeSwitch);
-        useThemeRow.activatable_widget = useThemeSwitch;
         settings.bind(useThemeKey, useThemeSwitch, 'active', Gio.SettingsBindFlags.DEFAULT);
         colorExpander.add_row(useThemeRow);
 

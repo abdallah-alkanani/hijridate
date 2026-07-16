@@ -232,11 +232,8 @@ class HijriDateButtonClass extends PanelMenu.Button {
         this._addSettingsButton();
 
         this._menuOpenChangedId = this.menu.connect('open-state-changed', (menu, isOpen) => {
-            if (isOpen) {
-                this._updateCalendarColor();
-            } else {
+            if (!isOpen)
                 this._hidePickers();
-            }
         });
 
         this._settingsChangedId = this._extension._settings.connect('changed', (settings, key) => {
@@ -332,9 +329,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
     }
 
     _addCalendar() {
-        const calendarItem = new PopupMenu.PopupBaseMenuItem({
-            activate: false,
-        });
+        const calendarItem = new PopupMenu.PopupBaseMenuItem({ activate: false });
         calendarItem.add_style_class_name('no-row-hover');
         calendarItem.reactive = false;
         calendarItem.track_hover = false;
@@ -342,11 +337,10 @@ class HijriDateButtonClass extends PanelMenu.Button {
 
         const calendarBox = new St.BoxLayout({
             vertical: true,
-            style_class: 'hijri-calendar calendar',
+            style_class: 'hijri-calendar',
             x_expand: true,
         });
         calendarItem.add_child(calendarBox);
-        this._calendarBox = calendarBox;
 
         this._calendarHeader = new St.BoxLayout({
             style_class: 'hijri-calendar-header-row',
@@ -467,12 +461,13 @@ class HijriDateButtonClass extends PanelMenu.Button {
 
         this._calendarGrid = new St.Widget({
             layout_manager: this._calendarGridLayout,
-            style_class: 'hijri-calendar-grid',
+            style_class: 'hijri-calendar-grid calendar',
             x_expand: true,
         });
         calendarBox.add_child(this._calendarGrid);
 
         this.menu.addMenuItem(calendarItem);
+
         this._updateCalendar();
         this._updateCalendarColor();
     }
@@ -807,31 +802,21 @@ class HijriDateButtonClass extends PanelMenu.Button {
             this._extension._calendarMethod
         );
         const weekdayFormatter = new Intl.DateTimeFormat(weekLocale, { weekday: 'narrow' });
-        const weekdayLongFormatter = new Intl.DateTimeFormat(weekLocale, { weekday: 'long' });
-        const arabicWeekdays = this._extension._weekLanguage === Language.ARABIC;
         const weekdayLabels = [];
         const weekdayBase = new Date(1970, 0, 4); // Sunday
         for (let i = 0; i < 7; i++) {
             const weekdayDate = new Date(weekdayBase);
             weekdayDate.setDate(weekdayBase.getDate() + i);
-            weekdayLabels.push({
-                label: weekdayFormatter.format(weekdayDate),
-                accessibleName: weekdayLongFormatter.format(weekdayDate),
-            });
+            weekdayLabels.push(weekdayFormatter.format(weekdayDate));
         }
 
-        weekdayLabels.forEach(({ label, accessibleName }, index) => {
+        weekdayLabels.forEach((label, index) => {
             const dayLabel = new St.Label({
                 text: label,
-                style_class: arabicWeekdays
-                    ? 'hijri-calendar-weekday hijri-calendar-weekday-arabic'
-                    : 'hijri-calendar-weekday',
+                style_class: 'hijri-calendar-weekday calendar-day-heading',
                 x_align: Clutter.ActorAlign.CENTER,
                 y_align: Clutter.ActorAlign.CENTER,
             });
-            dayLabel.accessible_name = accessibleName;
-            if (arabicWeekdays)
-                dayLabel.set_text_direction(Clutter.TextDirection.RTL);
             this._calendarGridLayout.attach(dayLabel, index, 0, 1, 1);
         });
 
@@ -844,21 +829,20 @@ class HijriDateButtonClass extends PanelMenu.Button {
             const isCurrentMonth = cellParts.month === targetParts.month &&
                 cellParts.year === targetParts.year;
             const isToday = isSameDay(cellDate, baseDate);
-            const styleClass = 'hijri-calendar-day calendar-day-base calendar-day';
 
             const dayButton = new St.Button({
                 label: formatters.displayDay.format(displayDate),
-                style_class: styleClass,
+                style_class: 'hijri-calendar-day calendar-day',
                 x_align: Clutter.ActorAlign.CENTER,
                 y_align: Clutter.ActorAlign.CENTER,
                 can_focus: false,
-                reactive: false,
+                reactive: true,
                 track_hover: false,
             });
 
             if (!isCurrentMonth) {
                 dayButton.add_style_class_name('other-month');
-                dayButton.add_style_class_name('calendar-other-month-day');
+                dayButton.add_style_class_name('calendar-other-month');
             }
             if (isToday) {
                 dayButton.add_style_class_name('today');
@@ -887,81 +871,36 @@ class HijriDateButtonClass extends PanelMenu.Button {
 
     _updateColor() {
         const style = this._extension._useThemeTextColor
-            ? null
+            ? ''
             : `color: ${this._extension._textColor};`;
         this.label.set_style(style);
     }
 
     _updateCalendarColor() {
-        const customColor = this._extension._calendarTextColor;
-        const usesCustomColor = !this._extension._useThemeCalendarTextColor &&
-            /^#[0-9A-Fa-f]{6}$/.test(customColor);
-
-        const textActors = [
-            this._calendarMonthLabel,
-            this._calendarYearLabel,
-            this._calendarTodayButton,
-            ...this._monthPickerGrid.get_children(),
-            ...this._yearPickerList.get_children(),
-            ...this._calendarGrid.get_children(),
-        ];
-
-        if (usesCustomColor) {
-            this._calendarBox.set_style(null);
-            const style = `color: ${customColor};`;
-            for (const actor of textActors) {
-                const keepsNativeForeground =
-                    actor.has_style_class_name &&
-                    (actor.has_style_class_name('today') ||
-                     actor.has_style_class_name('calendar-today') ||
-                     actor.has_style_class_name('selected'));
-                actor.set_style(keepsNativeForeground ? null : style);
-            }
-            return;
-        }
-
-        for (const actor of textActors)
-            actor.set_style(null);
-
-        const fgColor = this._computeReadableForeground(this._calendarBox);
-        if (fgColor)
-            this._calendarBox.set_style(`color: ${fgColor};`);
+        const style = this._extension._useThemeCalendarTextColor
+            ? ''
+            : `color: ${this._extension._calendarTextColor};`;
+        [
+            this._calendarHeader,
+            this._monthPickerBox,
+            this._yearPickerBox,
+            this._calendarGrid,
+        ].forEach(actor => this._applyCalendarTextStyle(actor, style));
     }
 
-    _computeReadableForeground(actor) {
-        if (!actor || !actor.get_stage())
-            return null;
+    _applyCalendarTextStyle(actor, style) {
+        if (!actor)
+            return;
 
-        let bg = null;
-        let cur = actor;
-        while (cur) {
-            if (typeof cur.get_theme_node === 'function') {
-                let c = null;
-                try {
-                    c = cur.get_theme_node().get_background_color();
-                } catch (e) {
-                    c = null;
-                }
-                if (c && c.alpha >= 128) {
-                    bg = c;
-                    break;
-                }
-            }
-            cur = cur.get_parent();
-        }
-        if (!bg)
-            return null;
+        const keepsAccentColor = style &&
+            typeof actor.has_style_class_name === 'function' &&
+            (actor.has_style_class_name('today') ||
+             actor.has_style_class_name('selected'));
 
-        const channel = (v) => {
-            const s = v / 255;
-            return s <= 0.03928 ? s / 12.92
-                                : Math.pow((s + 0.055) / 1.055, 2.4);
-        };
-        const L = 0.2126 * channel(bg.red) +
-                  0.7152 * channel(bg.green) +
-                  0.0722 * channel(bg.blue);
+        actor.set_style(keepsAccentColor ? '' : style);
 
-        return L >= 0.179 ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 1)';
+        if (typeof actor.get_children === 'function')
+            actor.get_children().forEach(child => this._applyCalendarTextStyle(child, style));
     }
 
     destroy() {

@@ -4,10 +4,28 @@
    Panel button and popup menu styles
 ─────────────────────────────────────────────────────────── */
 
+/* Helper classes */
+.no-row-hover,
+.no-row-hover:hover,
+.no-row-hover:selected,
+.no-row-hover:focus {
+    background-color: transparent;
+}
+
+
 /* Panel button */
 .hijri-date-button {
     padding: 0 6px;
     transition-duration: 150ms;
+}
+
+.hijri-date-button:hover,
+.hijri-date-button:focus {
+    background-color: rgba(255,255,255,0.05);
+}
+
+.hijri-date-button:active {
+    background-color: rgba(255,255,255,0.08);
 }
 
 .hijri-date-label {
@@ -20,13 +38,6 @@
 /* Settings button in popup */
 .settings-button-item {
     font-weight: 500;
-}
-
-.no-row-hover,
-.no-row-hover:hover,
-.no-row-hover:selected,
-.no-row-hover:focus {
-    background-color: transparent;
 }
 
 /* Popup menu positioning */
@@ -120,23 +131,17 @@
 
 .hijri-calendar-month-button.selected,
 .hijri-calendar-year-button.selected {
-    /* GNOME 40-44 do not expose the later -st-accent-* CSS values. */
-    background-color: rgba(128,128,128,0.24);
+    background-color: -st-accent-color;
+    color: -st-accent-fg-color;
     font-weight: 600;
 }
 
-.hijri-calendar .hijri-calendar-weekday {
+.hijri-calendar-weekday {
+    font-weight: bold;
     text-align: center;
-    margin: 2px;
-    padding: 0;
-    height: 16px;
-    font-weight: 600;
-}
-
-.hijri-calendar .hijri-calendar-weekday-arabic {
-    font-family: "Noto Sans Arabic", Sans;
-    font-size: 14px;
-    height: 30px;
+    margin: 4px;
+    padding: 3px 6px;
+    border-radius: 8px;
 }
 
 .hijri-calendar-grid {
@@ -149,17 +154,17 @@
     width: 3em;
     margin: 2px;
     padding: 0;
-    font-weight: 600;
+    font-weight: bold;
     text-align: center;
 }
 
-.hijri-calendar .hijri-calendar-day.other-month,
-.hijri-calendar .hijri-calendar-day.other-month.calendar-other-month-day {
+.hijri-calendar-day.other-month {
     font-weight: normal;
-    opacity: 0.4;
 }
 
 .hijri-calendar-day.today {
-    font-weight: 800;
+    background-color: -st-accent-color;
+    color: -st-accent-fg-color;
+    font-weight: 700;
     border-radius: 999px;
 }
