@@ -914,10 +914,9 @@ class HijriDateButtonClass extends PanelMenu.Button {
             const style = `color: ${customColor};`;
             for (const actor of textActors) {
                 const keepsNativeForeground =
-                    actor.has_style_class_name &&
-                    (actor.has_style_class_name('today') ||
+                    actor.has_style_class_name('today') ||
                      actor.has_style_class_name('calendar-today') ||
-                     actor.has_style_class_name('selected'));
+                     actor.has_style_class_name('selected');
                 actor.set_style(keepsNativeForeground ? null : style);
             }
             return;
