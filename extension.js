@@ -803,55 +803,32 @@ class HijriDateButtonClass extends PanelMenu.Button {
         if (this._yearPickerBox.visible)
             this._renderYearPicker(formatters, targetParts.year);
 
-        /* The week always starts on Sunday (0), regardless of locale. This is
-         * a deliberate choice for this extension (the user wants a Sunday-first
-         * grid in both English and Arabic). The column formula below still uses
-         * weekStart as the single source of truth for headings + day cells, so
-         * a heading letter and the day cells of the same weekday share a column. */
-        const weekStart = 0;
-
-        /* Back the grid start up to Sunday: daysToWeekStart = (7 + firstDay - 0) % 7 = firstDay. */
-        const daysToWeekStart = (7 + firstOfDisplayDate.getDay() - weekStart) % 7;
+        /* Sunday-first grid (matches the 45-50 version of this extension).
+         * The week always starts on Sunday regardless of locale, and the
+         * layout is simple left-to-right (no RTL column mirror) — the same
+         * approach used by the 45-50 build, where the Arabic weekday letters
+         * render correctly. An earlier version mirrored columns with a
+         * `6 - (7 + dow - weekStart) % 7` formula for RTL, but that scrambled
+         * the Arabic heading letters; reverting to the simple LTR layout
+         * fixes it. */
+        const firstWeekday = firstOfDisplayDate.getDay();
         const gridStartDate = new Date(firstOfDisplayDate);
-        gridStartDate.setDate(gridStartDate.getDate() - daysToWeekStart);
+        gridStartDate.setDate(gridStartDate.getDate() - firstWeekday);
 
         this._calendarGrid.get_children().forEach(child => child.destroy());
-
-        const rtl = this._calendarGrid.get_text_direction() === Clutter.TextDirection.RTL;
 
         const weekLocale = buildHijriLocale(
             this._extension._weekLanguage,
             this._extension._calendarMethod
         );
         const weekdayFormatter = new Intl.DateTimeFormat(weekLocale, { weekday: 'narrow' });
-
-        /* Build one label per Gregorian day-of-week (0=Sun..6=Sat) by
-         * formatting 7 consecutive dates starting from a known Sunday
-         * (1970-01-04). For ar this yields [ح, ن, ث, ر, خ, ج, س] for
-         * dayOfWeek 0..6; for en it yields [S, M, T, W, T, F, S]. */
-        const dayOfWeekLabel = [];
+        const weekdayLabels = [];
         const weekdayBase = new Date(1970, 0, 4); // Sunday
-        for (let dow = 0; dow < 7; dow++) {
+        for (let i = 0; i < 7; i++) {
             const weekdayDate = new Date(weekdayBase);
-            weekdayDate.setDate(weekdayBase.getDate() + dow);
-            dayOfWeekLabel.push(weekdayFormatter.format(weekdayDate));
+            weekdayDate.setDate(weekdayBase.getDate() + i);
+            weekdayLabels.push(weekdayFormatter.format(weekdayDate));
         }
-
-        /* Column formula — identical to stock calendar.js lines 528-531 /
-         * 698-702, used for BOTH the weekday headings and the day cells so a
-         * heading letter and the day cells of the same weekday share a
-         * column. The first column (col 0 LTR / col 6 RTL) is the
-         * week-start day.
-         *   LTR: col = (7 + dow - weekStart) % 7   (0..6, weekStart at col 0)
-         *   RTL: col = 6 - (7 + dow - weekStart) % 7 (weekStart at col 6,
-         *        which Clutter.GridLayout places on the RIGHT edge).
-         * Clutter.GridLayout does NOT auto-mirror columns for RTL, so the
-         * explicit 6 - (...) mirror here is what makes the grid read
-         * right-to-left. */
-        const colForDow = dow => {
-            const base = (7 + dow - weekStart) % 7;
-            return rtl ? 6 - base : base;
-        };
 
         /* Weekday heading labels.
          *
@@ -867,18 +844,22 @@ class HijriDateButtonClass extends PanelMenu.Button {
          * _updateCalendarColor() sets on the .hijri-calendar container
          * (calendarBox) — chosen by luminance against the actual popup
          * background, so it is readable in both light and dark themes
-         * without depending on $fg_color or $insensitive_fg_color. */
+         * without depending on $fg_color or $insensitive_fg_color.
+         *
+         * The headings are attached left-to-right (column = index), matching
+         * the 45-50 build; this is what makes the Arabic weekday letters
+         * render in the correct order. */
         this._weekdayLabelActors = [];
-        for (let dow = 0; dow < 7; dow++) {
+        weekdayLabels.forEach((label, index) => {
             const dayLabel = new St.Label({
-                text: dayOfWeekLabel[dow],
+                text: label,
                 style_class: 'hijri-calendar-weekday',
                 x_align: Clutter.ActorAlign.CENTER,
                 y_align: Clutter.ActorAlign.CENTER,
             });
-            this._calendarGridLayout.attach(dayLabel, colForDow(dow), 0, 1, 1);
+            this._calendarGridLayout.attach(dayLabel, index, 0, 1, 1);
             this._weekdayLabelActors.push(dayLabel);
-        }
+        });
 
         for (let i = 0; i < 42; i++) {
             const cellDate = new Date(gridStartDate);
@@ -891,19 +872,25 @@ class HijriDateButtonClass extends PanelMenu.Button {
             const isToday = isSameDay(cellDate, baseDate);
             let styleClass = 'hijri-calendar-day calendar-day-base calendar-day';
 
+            /* Use the extension's own calendar-weekday / calendar-weekend
+             * classes (NOT the stock calendar-work-day / calendar-nonwork-day
+             * classes). The stock .calendar-nonwork-day rule gives weekends a
+             * different (muted) color via $insensitive_fg_color; we want
+             * weekdays and weekends to share the SAME color, with only
+             * current-month vs other-month differing. The custom classes
+             * have no color rules in stylesheet.css, so both inherit the same
+             * foreground from the calendar container. */
             if (isWorkDay(cellDate))
-                styleClass += ' calendar-work-day';
+                styleClass += ' calendar-weekday';
             else
-                styleClass += ' calendar-nonwork-day';
+                styleClass += ' calendar-weekend';
 
             if (Math.floor(i / 7) === 0)
                 styleClass = `calendar-day-top ${styleClass}`;
 
-            /* leftMost = the first column of the week, i.e. the column whose
-             * weekday == weekStart. Mirrors stock calendar.js lines 681-683.
-             * Expressed on our column numbering: col 0 (LTR) / col 6 (RTL). */
-            const col = colForDow(cellDate.getDay());
-            const leftMost = rtl ? col === 6 : col === 0;
+            const leftMost = this._calendarGrid.get_text_direction() === Clutter.TextDirection.RTL
+                ? i % 7 === 6
+                : i % 7 === 0;
             if (leftMost)
                 styleClass = `calendar-day-left ${styleClass}`;
 
@@ -926,7 +913,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
                 dayButton.add_style_class_name('calendar-today');
             }
 
-            this._calendarGridLayout.attach(dayButton, col, Math.floor(i / 7) + 1, 1, 1);
+            this._calendarGridLayout.attach(dayButton, i % 7, Math.floor(i / 7) + 1, 1, 1);
         }
         this._updateCalendarColor();
     }
