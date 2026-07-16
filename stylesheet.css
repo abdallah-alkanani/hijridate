@@ -133,6 +133,10 @@
     font-weight: 600;
 }
 
+.hijri-calendar .hijri-calendar-weekday-arabic {
+    height: 30px;
+}
+
 .hijri-calendar-grid {
     margin-top: 2px;
 }

@@ -807,6 +807,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
             this._extension._calendarMethod
         );
         const weekdayFormatter = new Intl.DateTimeFormat(weekLocale, { weekday: 'narrow' });
+        const arabicWeekdays = this._extension._weekLanguage === Language.ARABIC;
         const weekdayLabels = [];
         const weekdayBase = new Date(1970, 0, 4); // Sunday
         for (let i = 0; i < 7; i++) {
@@ -818,7 +819,9 @@ class HijriDateButtonClass extends PanelMenu.Button {
         weekdayLabels.forEach((label, index) => {
             const dayLabel = new St.Label({
                 text: label,
-                style_class: 'hijri-calendar-weekday',
+                style_class: arabicWeekdays
+                    ? 'hijri-calendar-weekday hijri-calendar-weekday-arabic'
+                    : 'hijri-calendar-weekday',
                 x_align: Clutter.ActorAlign.CENTER,
                 y_align: Clutter.ActorAlign.CENTER,
             });
