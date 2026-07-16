@@ -171,10 +171,12 @@
  * $insensitive_fg_color). A previous fix that used `color: inherit` here
  * broke this (it copied a dark-compiled white ancestor color, making
  * other-month days white-on-white in light themes). We only soften the
- * weight; the color comes from the stock rule. */
+ * weight and reduce opacity so other-month days are clearly fainter than
+ * the current-month days; the color comes from the stock rule. */
 .hijri-calendar .hijri-calendar-day.other-month,
 .hijri-calendar .hijri-calendar-day.other-month.calendar-other-month-day {
     font-weight: normal;
+    opacity: 0.4;
 }
 
 .hijri-calendar-day.today {
