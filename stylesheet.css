@@ -111,6 +111,11 @@
     border-radius: 8px;
 }
 
+.hijri-calendar-weekday-arabic {
+    font-family: "Noto Sans Arabic", Sans;
+    font-size: 14px;
+}
+
 .hijri-calendar-grid {
     margin-top: 2px;
 }
