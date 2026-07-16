@@ -911,7 +911,17 @@ class HijriDateButtonClass extends PanelMenu.Button {
         ];
 
         for (const actor of textActors) {
-            const keepsNativeForeground = !usesCustomColor ||
+            if (!usesCustomColor) {
+                actor.set_style(null);
+                continue;
+            }
+            /* When applying a custom color, never override the foreground of
+             * "today" (which is white-on-accent by default) and the picker's
+             * selected item; they need to stay readable against their own
+             * background. Every other actor — weekday headings included —
+             * receives the same user-chosen color, matching how the stock
+             * GNOME Shell calendar handles light/dark mode. */
+            const keepsNativeForeground =
                 actor.has_style_class_name('today') ||
                 actor.has_style_class_name('calendar-today') ||
                 actor.has_style_class_name('selected');
