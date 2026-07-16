@@ -25,7 +25,5 @@ UUID is `hijridate@date`.
 
 ## License
 
-Copyright 2026 Abdallah Alkanani.
-
 This project is licensed under the GNU General Public License, version 3 or
 later (`GPL-3.0-or-later`). See [LICENSE](LICENSE).
