@@ -104,7 +104,6 @@
 }
 
 .hijri-calendar-weekday {
-    font-weight: bold;
     text-align: center;
     margin: 4px;
     padding: 3px 6px;
@@ -121,22 +120,20 @@
     width: 3em;
     margin: 2px;
     padding: 0;
+    color: -st-foreground-color;
+    font-weight: bold;
     text-align: center;
 }
 
-.hijri-calendar .hijri-calendar-day.current-month {
-    font-weight: 900;
-    opacity: 1;
-}
-
-.hijri-calendar-day.other-month {
+.hijri-calendar-day.other-month,
+.hijri-calendar-day.calendar-other-month {
     font-weight: normal;
-    opacity: 0.25;
+    opacity: 0.5;
 }
 
 .hijri-calendar-day.today {
     background-color: -st-accent-color;
     color: -st-accent-fg-color;
-    font-weight: 900;
+    font-weight: bold;
     border-radius: 999px;
 }

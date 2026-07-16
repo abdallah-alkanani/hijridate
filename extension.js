@@ -65,18 +65,6 @@ function isSameDay(left, right) {
         left.getDate() === right.getDate();
 }
 
-function foregroundForBackground(color) {
-    if (!color || color.alpha === 0)
-        return null;
-
-    const r = color.red / 255;
-    const g = color.green / 255;
-    const b = color.blue / 255;
-    const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-
-    return luminance > 0.5 ? '#2e3436' : '#ffffff';
-}
-
 function getCalendarId(method) {
     switch (method) {
         case CalendarMethod.CIVIL:
@@ -363,7 +351,6 @@ class HijriDateButtonClass extends PanelMenu.Button {
             style_class: 'hijri-calendar calendar',
             x_expand: true
         });
-        this._calendarBox = calendarBox;
         calendarItem.add_child(calendarBox);
 
         this._calendarHeader = new St.BoxLayout({
@@ -910,8 +897,6 @@ class HijriDateButtonClass extends PanelMenu.Button {
             if (!isCurrentMonth) {
                 dayButton.add_style_class_name('other-month');
                 dayButton.add_style_class_name('calendar-other-month');
-            } else {
-                dayButton.add_style_class_name('current-month');
             }
             if (isToday) {
                 dayButton.add_style_class_name('today');
@@ -950,7 +935,6 @@ class HijriDateButtonClass extends PanelMenu.Button {
         const usesCustomColor = !this._extension._useThemeCalendarTextColor &&
             /^#[0-9A-Fa-f]{6}$/.test(customColor);
         const style = usesCustomColor ? `color: ${customColor};` : null;
-        const currentMonthColor = usesCustomColor ? customColor : this._getCalendarForegroundColor();
         const textActors = [
             this._calendarMonthLabel,
             this._calendarYearLabel,
@@ -961,29 +945,12 @@ class HijriDateButtonClass extends PanelMenu.Button {
         ];
 
         for (const actor of textActors) {
-            const isCurrentMonth = actor.has_style_class_name('current-month');
             const keepsNativeForeground = !usesCustomColor ||
                 actor.has_style_class_name('today') ||
                 actor.has_style_class_name('calendar-today') ||
-                actor.has_style_class_name('selected') ||
-                isCurrentMonth;
-            actor.set_style(isCurrentMonth
-                ? `color: ${currentMonthColor}; font-weight: 900; opacity: 1;`
-                : keepsNativeForeground ? null : style);
+                actor.has_style_class_name('selected');
+            actor.set_style(keepsNativeForeground ? null : style);
         }
-    }
-
-    _getCalendarForegroundColor() {
-        for (let actor = this._calendarBox; actor; actor = actor.get_parent?.()) {
-            const themeNode = actor.get_theme_node?.();
-            const color = themeNode?.get_background_color?.();
-            const foreground = foregroundForBackground(color);
-
-            if (foreground)
-                return foreground;
-        }
-
-        return '-st-foreground-color';
     }
 
     destroy() {
