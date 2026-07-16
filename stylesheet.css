@@ -127,20 +127,19 @@
 
 /* Calendar weekday headings.
  *
- * The weekday heading color is NOT set here. The stock GNOME 40-44 rule
- *   `.calendar .calendar-day-base.calendar-day-heading { color: $insensitive_fg_color }`
- * is unreliable on third-party "light" shell themes that fail to re-derive
- * $insensitive_fg_color (it compiles to white -> invisible headings), and
- * `color: inherit` is also unsafe in St 40-44 for this purpose (it walks the
- * parent chain for an EXPLICIT color, which in those broken themes is a
- * dark-compiled white). We therefore do NOT carry the stock
- * `calendar-day-base calendar-day-heading` classes on the heading label
- * (see extension.js) and do NOT declare a color here. The heading's color
- * is instead applied explicitly at runtime in _updateCalendarColor(), by
- * copying the resolved foreground color of a real month day cell — which is
- * readable in both light and dark themes — onto each heading. This makes the
- * heading match the day cells exactly, theme-agnostic. Only font/size
- * styling is defined here, mirroring the upstream .calendar-day-heading. */
+ * No `color` is declared here. The heading label carries only the
+ * `hijri-calendar-weekday` class (the stock `calendar-day-base
+ * calendar-day-heading` classes are deliberately NOT used — see
+ * extension.js — because the stock rule pins the heading to
+ * $insensitive_fg_color, which is unreliable in third-party "light" themes).
+ *
+ * The heading therefore has NO explicit `color` rule and INHERITS the
+ * `color` set at runtime in _updateCalendarColor() on the common ancestor
+ * `.hijri-calendar` (calendarBox). That color is chosen by luminance against
+ * the actual popup background and reproduces the stock $fg_color in correct
+ * themes, so the heading is readable in both light and dark themes without
+ * depending on $fg_color or $insensitive_fg_color. Only font/size styling
+ * is defined here, mirroring the upstream .calendar-day-heading. */
 .hijri-calendar .hijri-calendar-weekday {
     text-align: center;
     margin: 2px;
