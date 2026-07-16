@@ -125,9 +125,8 @@
 }
 
 .hijri-calendar .hijri-calendar-day.current-month {
-    color: -st-foreground-color;
+    color: #ffffff;
     font-weight: 900;
-    font-size: 1.14em;
     opacity: 1;
 }
 

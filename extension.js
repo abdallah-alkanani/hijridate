@@ -948,14 +948,14 @@ class HijriDateButtonClass extends PanelMenu.Button {
 
         for (const actor of textActors) {
             const isCurrentMonth = actor.has_style_class_name('current-month');
-            const currentMonthStyle = 'font-weight: 900; font-size: 1.14em; opacity: 1;';
+            const currentMonthStyle = `${usesCustomColor ? customColor : '#ffffff'}`;
             const keepsNativeForeground = !usesCustomColor ||
                 actor.has_style_class_name('today') ||
                 actor.has_style_class_name('calendar-today') ||
                 actor.has_style_class_name('selected') ||
                 isCurrentMonth;
             actor.set_style(isCurrentMonth
-                ? `${usesCustomColor ? `color: ${customColor}; ` : ''}${currentMonthStyle}`
+                ? `color: ${currentMonthStyle}; font-weight: 900; opacity: 1;`
                 : keepsNativeForeground ? null : style);
         }
     }
