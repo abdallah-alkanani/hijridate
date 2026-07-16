@@ -6,7 +6,6 @@ const St       = imports.gi.St;
 const GObject  = imports.gi.GObject;
 const Clutter  = imports.gi.Clutter;
 const GLib     = imports.gi.GLib;
-const Shell    = imports.gi.Shell;
 
 const Main       = imports.ui.main;
 const PanelMenu  = imports.ui.panelMenu;
@@ -804,20 +803,14 @@ class HijriDateButtonClass extends PanelMenu.Button {
         if (this._yearPickerBox.visible)
             this._renderYearPicker(formatters, targetParts.year);
 
-        /* Locale-correct week start (0=Sun..6=Sat). Stock GNOME 40-44 uses
-         * Shell.util_get_week_start() (js/ui/calendar.js:402); it reads the
-         * gtk30 "calendar:week_start:N" translation, so Arabic locales return
-         * 6 (Saturday). This is the single source of truth for both the grid
-         * start date and the column placement of headings + day cells, so the
-         * heading letter for a given weekday always lands in the same column
-         * as the day cells of that weekday. */
-        const weekStart = Shell.util_get_week_start();
+        /* The week always starts on Sunday (0), regardless of locale. This is
+         * a deliberate choice for this extension (the user wants a Sunday-first
+         * grid in both English and Arabic). The column formula below still uses
+         * weekStart as the single source of truth for headings + day cells, so
+         * a heading letter and the day cells of the same weekday share a column. */
+        const weekStart = 0;
 
-        /* Back the grid start up to the week-start day (NOT always Sunday):
-         * daysToWeekStart = (7 + firstDay - weekStart) % 7.
-         * For en-US (weekStart=0) this equals firstDay, matching the old
-         * Sunday-anchored behavior exactly. For ar-SA (weekStart=6) it backs
-         * up to the preceding Saturday. */
+        /* Back the grid start up to Sunday: daysToWeekStart = (7 + firstDay - 0) % 7 = firstDay. */
         const daysToWeekStart = (7 + firstOfDisplayDate.getDay() - weekStart) % 7;
         const gridStartDate = new Date(firstOfDisplayDate);
         gridStartDate.setDate(gridStartDate.getDate() - daysToWeekStart);
