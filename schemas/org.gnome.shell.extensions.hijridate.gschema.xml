@@ -92,5 +92,17 @@
       <default>true</default>
     </key>
 
+    <key name="calendar-text-color" type="s">
+      <summary>Calendar text color</summary>
+      <description>Color of the Hijri calendar text in the popup.</description>
+      <default>''</default>
+    </key>
+
+    <key name="use-theme-calendar-text-color" type="b">
+      <summary>Use theme calendar text color</summary>
+      <description>Use the GNOME Shell theme color for the Hijri calendar text in the popup.</description>
+      <default>true</default>
+    </key>
+
   </schema>
 </schemalist>

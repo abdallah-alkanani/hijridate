@@ -725,5 +725,11 @@ export default class HijriDatePreferences extends ExtensionPreferences {
             'text-color',
             'use-theme-text-color'
         ));
+        colorGroup.add(createColorExpander(
+            _('Popup Calendar Text Color'),
+            _('Color for the Hijri calendar popup text'),
+            'calendar-text-color',
+            'use-theme-calendar-text-color'
+        ));
     }
 }
