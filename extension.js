@@ -337,7 +337,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
 
         const calendarBox = new St.BoxLayout({
             vertical: true,
-            style_class: 'hijri-calendar',
+            style_class: 'hijri-calendar calendar',
             x_expand: true,
         });
         calendarItem.add_child(calendarBox);
@@ -461,7 +461,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
 
         this._calendarGrid = new St.Widget({
             layout_manager: this._calendarGridLayout,
-            style_class: 'hijri-calendar-grid calendar',
+            style_class: 'hijri-calendar-grid',
             x_expand: true,
         });
         calendarBox.add_child(this._calendarGrid);
@@ -813,7 +813,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
         weekdayLabels.forEach((label, index) => {
             const dayLabel = new St.Label({
                 text: label,
-                style_class: 'hijri-calendar-weekday calendar-day-heading',
+                style_class: 'calendar-day-base calendar-day-heading',
                 x_align: Clutter.ActorAlign.CENTER,
                 y_align: Clutter.ActorAlign.CENTER,
             });
@@ -832,7 +832,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
 
             const dayButton = new St.Button({
                 label: formatters.displayDay.format(displayDate),
-                style_class: 'hijri-calendar-day calendar-day',
+                style_class: 'calendar-day-base calendar-day',
                 x_align: Clutter.ActorAlign.CENTER,
                 y_align: Clutter.ActorAlign.CENTER,
                 can_focus: false,
@@ -841,11 +841,9 @@ class HijriDateButtonClass extends PanelMenu.Button {
             });
 
             if (!isCurrentMonth) {
-                dayButton.add_style_class_name('other-month');
-                dayButton.add_style_class_name('calendar-other-month');
+                dayButton.add_style_class_name('calendar-other-month-day');
             }
             if (isToday) {
-                dayButton.add_style_class_name('today');
                 dayButton.add_style_class_name('calendar-today');
             }
 
@@ -871,36 +869,31 @@ class HijriDateButtonClass extends PanelMenu.Button {
 
     _updateColor() {
         const style = this._extension._useThemeTextColor
-            ? ''
+            ? null
             : `color: ${this._extension._textColor};`;
         this.label.set_style(style);
     }
 
     _updateCalendarColor() {
-        const style = this._extension._useThemeCalendarTextColor
-            ? ''
-            : `color: ${this._extension._calendarTextColor};`;
-        [
-            this._calendarHeader,
-            this._monthPickerBox,
-            this._yearPickerBox,
-            this._calendarGrid,
-        ].forEach(actor => this._applyCalendarTextStyle(actor, style));
-    }
+        const customColor = this._extension._calendarTextColor;
+        const usesCustomColor = !this._extension._useThemeCalendarTextColor &&
+            /^#[0-9A-Fa-f]{6}$/.test(customColor);
+        const style = usesCustomColor ? `color: ${customColor};` : null;
+        const textActors = [
+            this._calendarMonthLabel,
+            this._calendarYearLabel,
+            this._calendarTodayButton,
+            ...this._monthPickerGrid.get_children(),
+            ...this._yearPickerList.get_children(),
+            ...this._calendarGrid.get_children(),
+        ];
 
-    _applyCalendarTextStyle(actor, style) {
-        if (!actor)
-            return;
-
-        const keepsAccentColor = style &&
-            typeof actor.has_style_class_name === 'function' &&
-            (actor.has_style_class_name('today') ||
-             actor.has_style_class_name('selected'));
-
-        actor.set_style(keepsAccentColor ? '' : style);
-
-        if (typeof actor.get_children === 'function')
-            actor.get_children().forEach(child => this._applyCalendarTextStyle(child, style));
+        for (const actor of textActors) {
+            const keepsNativeForeground = !usesCustomColor ||
+                actor.has_style_class_name('calendar-today') ||
+                actor.has_style_class_name('selected');
+            actor.set_style(keepsNativeForeground ? null : style);
+        }
     }
 
     destroy() {

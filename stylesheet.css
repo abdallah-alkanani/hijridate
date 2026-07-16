@@ -136,35 +136,6 @@
     font-weight: 600;
 }
 
-.hijri-calendar-weekday {
-    font-weight: bold;
-    text-align: center;
-    margin: 4px;
-    padding: 3px 6px;
-    border-radius: 8px;
-}
-
 .hijri-calendar-grid {
     margin-top: 2px;
-}
-
-.hijri-calendar-day {
-    border-radius: 999px;
-    height: 3em;
-    width: 3em;
-    margin: 2px;
-    padding: 0;
-    font-weight: bold;
-    text-align: center;
-}
-
-.hijri-calendar-day.other-month {
-    font-weight: normal;
-}
-
-.hijri-calendar-day.today {
-    background-color: -st-accent-color;
-    color: -st-accent-fg-color;
-    font-weight: 700;
-    border-radius: 999px;
 }
