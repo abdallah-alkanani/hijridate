@@ -897,6 +897,8 @@ class HijriDateButtonClass extends PanelMenu.Button {
             if (!isCurrentMonth) {
                 dayButton.add_style_class_name('other-month');
                 dayButton.add_style_class_name('calendar-other-month');
+            } else {
+                dayButton.add_style_class_name('current-month');
             }
             if (isToday) {
                 dayButton.add_style_class_name('today');
