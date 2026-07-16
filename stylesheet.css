@@ -22,10 +22,10 @@
     font-weight: 500;
 }
 
-.hijri-calendar-item,
-.hijri-calendar-item:hover,
-.hijri-calendar-item:selected,
-.hijri-calendar-item:focus {
+.no-row-hover,
+.no-row-hover:hover,
+.no-row-hover:selected,
+.no-row-hover:focus {
     background-color: transparent;
 }
 
