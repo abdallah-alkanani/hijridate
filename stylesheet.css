@@ -148,6 +148,15 @@
     font-weight: 600;
 }
 
+/* GNOME's Arabic weekday abbreviations are single isolated characters
+ * (for example, \"ح\" for Sunday). At the inherited popup font size they
+ * reduce to dots and strokes, so use the installed Arabic fallback at the
+ * same readable size as the calendar header. */
+.hijri-calendar .hijri-calendar-weekday-arabic {
+    font-family: "Noto Sans Arabic", Sans;
+    font-size: 14px;
+}
+
 .hijri-calendar-grid {
     margin-top: 2px;
 }

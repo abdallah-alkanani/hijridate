@@ -822,12 +822,17 @@ class HijriDateButtonClass extends PanelMenu.Button {
             this._extension._calendarMethod
         );
         const weekdayFormatter = new Intl.DateTimeFormat(weekLocale, { weekday: 'narrow' });
+        const weekdayLongFormatter = new Intl.DateTimeFormat(weekLocale, { weekday: 'long' });
+        const arabicWeekdays = this._extension._weekLanguage === Language.ARABIC;
         const weekdayLabels = [];
         const weekdayBase = new Date(1970, 0, 4); // Sunday
         for (let i = 0; i < 7; i++) {
             const weekdayDate = new Date(weekdayBase);
             weekdayDate.setDate(weekdayBase.getDate() + i);
-            weekdayLabels.push(weekdayFormatter.format(weekdayDate));
+            weekdayLabels.push({
+                label: weekdayFormatter.format(weekdayDate),
+                accessibleName: weekdayLongFormatter.format(weekdayDate),
+            });
         }
 
         /* Weekday heading labels.
@@ -850,13 +855,18 @@ class HijriDateButtonClass extends PanelMenu.Button {
          * the 45-50 build; this is what makes the Arabic weekday letters
          * render in the correct order. */
         this._weekdayLabelActors = [];
-        weekdayLabels.forEach((label, index) => {
+        weekdayLabels.forEach(({ label, accessibleName }, index) => {
             const dayLabel = new St.Label({
                 text: label,
-                style_class: 'hijri-calendar-weekday',
+                style_class: arabicWeekdays
+                    ? 'hijri-calendar-weekday hijri-calendar-weekday-arabic'
+                    : 'hijri-calendar-weekday',
                 x_align: Clutter.ActorAlign.CENTER,
                 y_align: Clutter.ActorAlign.CENTER,
             });
+            dayLabel.accessible_name = accessibleName;
+            if (arabicWeekdays)
+                dayLabel.set_text_direction(Clutter.TextDirection.RTL);
             this._calendarGridLayout.attach(dayLabel, index, 0, 1, 1);
             this._weekdayLabelActors.push(dayLabel);
         });
