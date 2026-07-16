@@ -861,31 +861,21 @@ class HijriDateButtonClass extends PanelMenu.Button {
             this._extension._calendarMethod
         );
         const weekdayFormatter = new Intl.DateTimeFormat(weekLocale, { weekday: 'narrow' });
-        const weekdayLongFormatter = new Intl.DateTimeFormat(weekLocale, { weekday: 'long' });
-        const arabicWeekdays = this._extension._weekLanguage === Language.ARABIC;
         const weekdayLabels = [];
         const weekdayBase = new Date(1970, 0, 4); // Sunday
         for (let i = 0; i < 7; i++) {
             const weekdayDate = new Date(weekdayBase);
             weekdayDate.setDate(weekdayBase.getDate() + i);
-            weekdayLabels.push({
-                label: weekdayFormatter.format(weekdayDate),
-                accessibleName: weekdayLongFormatter.format(weekdayDate),
-            });
+            weekdayLabels.push(weekdayFormatter.format(weekdayDate));
         }
 
-        weekdayLabels.forEach(({ label, accessibleName }, index) => {
+        weekdayLabels.forEach((label, index) => {
             const dayLabel = new St.Label({
                 text: label,
-                style_class: arabicWeekdays
-                    ? 'hijri-calendar-weekday hijri-calendar-weekday-arabic calendar-day-heading'
-                    : 'hijri-calendar-weekday calendar-day-heading',
+                style_class: 'hijri-calendar-weekday calendar-day-heading',
                 x_align: Clutter.ActorAlign.CENTER,
                 y_align: Clutter.ActorAlign.CENTER
             });
-            dayLabel.accessible_name = accessibleName;
-            if (arabicWeekdays)
-                dayLabel.set_text_direction(Clutter.TextDirection.RTL);
             this._calendarGridLayout.attach(dayLabel, index, 0, 1, 1);
         });
 
