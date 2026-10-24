@@ -209,18 +209,11 @@ function panelLabelStyle(extension) {
         : `${PANEL_LABEL_STYLE} color: ${extension._textColor};`;
 }
 
-// Natural width plus horizontal margins.
+// Natural width plus horizontal margins; call only for actors on stage.
 function outerWidth(actor) {
     const [, naturalWidth] = actor.get_preferred_width(-1);
-    let width = naturalWidth;
-    try {
-        const themeNode = actor.get_theme_node?.();
-        if (themeNode)
-            width += themeNode.get_margin(St.Side.LEFT) + themeNode.get_margin(St.Side.RIGHT);
-    } catch (e) {
-        console.warn('Failed to read margins:', e);
-    }
-    return width;
+    const themeNode = actor.get_theme_node();
+    return naturalWidth + themeNode.get_margin(St.Side.LEFT) + themeNode.get_margin(St.Side.RIGHT);
 }
 
 function isSameHijriMonth(left, right) {
