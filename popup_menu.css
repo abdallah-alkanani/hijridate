@@ -1,21 +1,6 @@
-/* GNOME Shell/St styles for the extension */
-
-/* ──────────────────────────────────────────────────────────
-   Panel button and popup menu styles
-─────────────────────────────────────────────────────────── */
-
-/* Panel button */
-.hijri-date-button {
-    padding: 0 6px;
-    transition-duration: 150ms;
-}
-
-.hijri-date-label {
-    font-size: 14px;
-    font-weight: bold;
-    margin: 0;
-    padding: 0;
-}
+/* Popup menu styles. Loaded by extension.js when the menu is first opened, not
+   on enable(): loading a stylesheet restyles the whole shell, and enable() runs
+   on every unlock. The panel button is styled inline (PANEL_*_STYLE). */
 
 /* Settings button in popup */
 .settings-button-item {
