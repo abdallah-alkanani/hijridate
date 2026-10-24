@@ -70,10 +70,9 @@ const THIKR = [
 
 const DEFAULT_SPACING = 0;
 const YEAR_RANGE_LIMIT = 200;
-// Fixed slot for the calendar header thikr, so the popup keeps its size as the
-// thikr changes; the longest ones wrap to a second line.
-const THIKR_HEADER_WIDTH = 140;
-const THIKR_HEADER_HEIGHT = 34;
+// Fixed-width slot for the calendar header thikr; long ones wrap. Its height is
+// that of the tallest thikr, so the popup keeps its size as the thikr changes.
+const THIKR_HEADER_WIDTH = 150;
 // Mean length of a Hijri month (30-year tabular cycle: 10631 days / 360 months).
 const MEAN_HIJRI_MONTH_DAYS = 10631 / 360;
 
@@ -586,6 +585,23 @@ class HijriDateButtonClass extends PanelMenu.Button {
         this._updateCalendar();
     }
 
+    // Height of the tallest thikr at this width and font; cached until either changes.
+    _thikrSlotHeight(forWidth) {
+        const label = this._calendarThikrLabel;
+        const key = `${this._extension._thikrLanguage}|${forWidth}|${label.get_theme_node().get_font().to_string()}`;
+        if (this._thikrSlotKey !== key) {
+            const current = label.text;
+            const heights = this._extension.getAllThikrTexts().map(text => {
+                label.text = text;
+                return this._calendarThikrButton.get_preferred_height(forWidth)[1];
+            });
+            label.text = current;
+            this._thikrSlotHeightValue = Math.ceil(Math.max(...heights));
+            this._thikrSlotKey = key;
+        }
+        return this._thikrSlotHeightValue;
+    }
+
     _updateCalendarThikr() {
         if (!this._calendarThikrButton)
             return;
@@ -676,9 +692,13 @@ class HijriDateButtonClass extends PanelMenu.Button {
         const todayWidth = Math.max(0, outerWidth(this._calendarTodayButton));
         const showThikr = this._calendarThikrButton.visible;
         const sideWidth = showThikr ? Math.max(todayWidth, THIKR_HEADER_WIDTH) : todayWidth;
-        this._calendarHeaderSpacer.set_style(showThikr
-            ? `width: ${sideWidth}px; min-height: ${THIKR_HEADER_HEIGHT}px;`
-            : `width: ${sideWidth}px;`);
+        let style = `width: ${sideWidth}px;`;
+        if (showThikr) {
+            const node = this._calendarThikrButton.get_theme_node();
+            const forWidth = sideWidth - node.get_margin(St.Side.LEFT) - node.get_margin(St.Side.RIGHT);
+            style += ` min-height: ${this._thikrSlotHeight(forWidth)}px;`;
+        }
+        this._calendarHeaderSpacer.set_style(style);
         this._calendarHeaderEndPad.visible = sideWidth > todayWidth;
         this._calendarHeaderEndPad.set_style(`width: ${sideWidth - todayWidth}px;`);
     }
@@ -1187,6 +1207,10 @@ export default class HijriDateDisplayExtension extends Extension {
         this._addToPanel();
         this._thikrIndex = Math.floor(Math.random() * THIKR.length);
         this._syncThikr();
+    }
+
+    getAllThikrTexts() {
+        return THIKR.map(thikr => (this._thikrLanguage === ThikrLanguage.ARABIC ? thikr.ar : thikr.en));
     }
 
     getThikrText() {
