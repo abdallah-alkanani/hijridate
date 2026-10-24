@@ -27,3 +27,15 @@ UUID is `hijridate@date`.
 
 This project is licensed under the GNU General Public License, version 3 or
 later (`GPL-3.0-or-later`). See [LICENSE](LICENSE).
+
+## Packaging
+
+```sh
+gnome-extensions pack --extra-source=popup_menu.css --extra-source=prefs.css
+```
+
+`popup_menu.css` is loaded when the popup is first opened, not as the
+automatic `stylesheet.css`, so it has to be listed explicitly.
+`gnome-extensions pack` also compiles the settings schema, which GNOME 40–43
+need; after changing `schemas/*.gschema.xml` in a checkout, run
+`glib-compile-schemas schemas/` and commit `schemas/gschemas.compiled`.
