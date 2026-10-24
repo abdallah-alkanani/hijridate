@@ -32,8 +32,27 @@ const YearSuffixStyle = { AH: 0, HEH: 1 };
 const Position = { FAR_LEFT: 0, LEFT: 1, CENTER: 2, RIGHT: 3, FAR_RIGHT: 4 };
 const CenterPosition = { LEFT: 0, MIDDLE_LEFT: 1, RIGHT: 2, MIDDLE_RIGHT: 3 };
 
+const ThikrLanguage = { ENGLISH: 0 /* transliteration */, ARABIC: 1 };
+
+/* Short adhkar, shown in Arabic or in English transliteration. */
+const THIKR = [
+    { ar: 'سبحان الله', en: 'SubhanAllah' },
+    { ar: 'الحمد لله', en: 'Alhamdulillah' },
+    { ar: 'الله أكبر', en: 'Allahu Akbar' },
+    { ar: 'لا إله إلا الله', en: 'La ilaha illa Allah' },
+    { ar: 'أستغفر الله', en: 'Astaghfirullah' },
+    { ar: 'سبحان الله وبحمده', en: 'SubhanAllahi wa bihamdihi' },
+    { ar: 'سبحان الله العظيم', en: 'SubhanAllahil Azim' },
+    { ar: 'لا حول ولا قوة إلا بالله', en: 'La hawla wa la quwwata illa billah' },
+    { ar: 'حسبنا الله ونعم الوكيل', en: 'HasbunAllahu wa ni\'mal wakil' },
+    { ar: 'اللهم صل على محمد', en: 'Allahumma salli \'ala Muhammad' },
+];
+
 const DEFAULT_SPACING = 0;
 const YEAR_RANGE_LIMIT = 200;
+/* Fixed-width slot for the calendar header thikr; long ones wrap. Its height is
+   that of the tallest thikr, so the popup keeps its size as the thikr changes. */
+const THIKR_HEADER_WIDTH = 150;
 /* Mean length of a Hijri month (30-year tabular cycle: 10631 days / 360 months). */
 const MEAN_HIJRI_MONTH_DAYS = 10631 / 360;
 
@@ -148,6 +167,19 @@ function getHijriNumericParts(date, formatter) {
         month: parseInt(dict.month, 10),
         year: parseInt(dict.year, 10),
     };
+}
+
+function panelLabelStyle(extension) {
+    return extension._useThemeTextColor
+        ? PANEL_LABEL_STYLE
+        : `${PANEL_LABEL_STYLE} color: ${extension._textColor};`;
+}
+
+/* Natural width plus horizontal margins; call only for actors on stage. */
+function outerWidth(actor) {
+    const [, naturalWidth] = actor.get_preferred_width(-1);
+    const themeNode = actor.get_theme_node();
+    return naturalWidth + themeNode.get_margin(St.Side.LEFT) + themeNode.get_margin(St.Side.RIGHT);
 }
 
 function isSameHijriMonth(left, right) {
@@ -332,6 +364,13 @@ class HijriDateButtonClass extends PanelMenu.Button {
                     this._extension._useThemeTextColor = settings.get_boolean('use-theme-text-color');
                     this._updateColor();
                     break;
+                case 'thikr-in-panel':
+                case 'thikr-panel-position':
+                case 'thikr-in-calendar':
+                case 'thikr-language':
+                case 'thikr-interval':
+                    this._extension._syncThikr();
+                    break;
                 case 'calendar-text-color':
                     this._extension._calendarTextColor = settings.get_string('calendar-text-color');
                     this._updateCalendarColor();
@@ -394,8 +433,28 @@ class HijriDateButtonClass extends PanelMenu.Button {
 
         this._calendarHeaderSpacer = new St.Widget({
             style_class: 'hijri-calendar-header-spacer',
+            layout_manager: new Clutter.BinLayout(),
         });
         this._calendarHeader.add_child(this._calendarHeaderSpacer);
+
+        this._calendarThikrLabel = new St.Label({
+            style_class: 'hijri-calendar-thikr',
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+        this._calendarThikrLabel.clutter_text.line_wrap = true;
+        this._calendarThikrButton = new St.Button({
+            child: this._calendarThikrLabel,
+            label_actor: this._calendarThikrLabel,
+            style_class: 'hijri-calendar-thikr-button',
+            x_align: Clutter.ActorAlign.START,
+            y_align: Clutter.ActorAlign.CENTER,
+            can_focus: true,
+            reactive: true,
+            track_hover: true,
+            visible: false,
+        });
+        this._calendarThikrButton.connect('clicked', () => this._extension.nextThikr());
+        this._calendarHeaderSpacer.add_child(this._calendarThikrButton);
 
         this._calendarHeaderCenter = new St.Widget({
             layout_manager: new Clutter.BinLayout(),
@@ -454,6 +513,9 @@ class HijriDateButtonClass extends PanelMenu.Button {
         this._calendarTodayButton.connect('clicked', () => this._goToToday());
         this._calendarTodayButton.connect('notify::width', () => this._syncHeaderSpacer());
         this._calendarTodayButton.connect('style-changed', () => this._syncHeaderSpacer());
+        /* Pads the Today side to the thikr's width so the month stays centred. */
+        this._calendarHeaderEndPad = new St.Widget({ visible: false });
+        this._calendarHeader.add_child(this._calendarHeaderEndPad);
         this._calendarHeader.add_child(this._calendarTodayButton);
         this._syncHeaderSpacer();
 
@@ -513,7 +575,35 @@ class HijriDateButtonClass extends PanelMenu.Button {
         this._createCalendarCells();
 
         this.menu.addMenuItem(calendarItem, 0);
+        this._updateCalendarThikr();
         this._updateCalendar();
+    }
+
+    /* Height of the tallest thikr at this width and font; cached until either changes. */
+    _thikrSlotHeight(forWidth) {
+        const label = this._calendarThikrLabel;
+        const key = `${this._extension._thikrLanguage}|${forWidth}|${label.get_theme_node().get_font().to_string()}`;
+        if (this._thikrSlotKey !== key) {
+            const current = label.text;
+            const heights = this._extension.getAllThikrTexts().map(text => {
+                label.text = text;
+                return this._calendarThikrButton.get_preferred_height(forWidth)[1];
+            });
+            label.text = current;
+            this._thikrSlotHeightValue = Math.ceil(Math.max(...heights));
+            this._thikrSlotKey = key;
+        }
+        return this._thikrSlotHeightValue;
+    }
+
+    _updateCalendarThikr() {
+        if (!this._calendarThikrButton)
+            return;
+        const show = this._extension._thikrInCalendar;
+        this._calendarThikrButton.visible = show;
+        if (show)
+            this._calendarThikrLabel.set_text(this._extension.getThikrText());
+        this._syncHeaderSpacer();
     }
 
     _createCalendarCells() {
@@ -574,11 +664,18 @@ class HijriDateButtonClass extends PanelMenu.Button {
            handlers run this again once the popup is shown. */
         if (!this._calendarTodayButton.get_stage())
             return;
-        const [, naturalWidth] = this._calendarTodayButton.get_preferred_width(-1);
-        let width = naturalWidth;
-        const themeNode = this._calendarTodayButton.get_theme_node();
-        width += themeNode.get_margin(St.Side.LEFT) + themeNode.get_margin(St.Side.RIGHT);
-        this._calendarHeaderSpacer.set_style(`width: ${Math.max(0, width)}px;`);
+        const todayWidth = Math.max(0, outerWidth(this._calendarTodayButton));
+        const showThikr = this._calendarThikrButton.visible;
+        const sideWidth = showThikr ? Math.max(todayWidth, THIKR_HEADER_WIDTH) : todayWidth;
+        let style = `width: ${sideWidth}px;`;
+        if (showThikr) {
+            const node = this._calendarThikrButton.get_theme_node();
+            const forWidth = sideWidth - node.get_margin(St.Side.LEFT) - node.get_margin(St.Side.RIGHT);
+            style += ` min-height: ${this._thikrSlotHeight(forWidth)}px;`;
+        }
+        this._calendarHeaderSpacer.set_style(style);
+        this._calendarHeaderEndPad.visible = sideWidth > todayWidth;
+        this._calendarHeaderEndPad.set_style(`width: ${sideWidth - todayWidth}px;`);
     }
 
     _hidePickers() {
@@ -950,10 +1047,9 @@ class HijriDateButtonClass extends PanelMenu.Button {
     }
 
     _updateColor() {
-        const style = this._extension._useThemeTextColor
-            ? PANEL_LABEL_STYLE
-            : `${PANEL_LABEL_STYLE} color: ${this._extension._textColor};`;
-        this.label.set_style(style);
+        this.label.set_style(panelLabelStyle(this._extension));
+        if (this._extension._thikrIndicator)
+            this._extension._thikrIndicator.update();
     }
 
     _updateCalendarColor() {
@@ -967,6 +1063,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
             this._calendarMonthLabel,
             this._calendarYearLabel,
             this._calendarTodayButton,
+            this._calendarThikrButton,
             ...this._monthPickerGrid.get_children(),
             ...this._yearPickerList.get_children(),
             ...this._calendarGrid.get_children(),
@@ -1046,6 +1143,39 @@ class HijriDateButtonClass extends PanelMenu.Button {
     }
 });
 
+/* ----- Thikr button ------------------------------------------------------- */
+
+/* Optional top-bar thikr; clicking it shows the next one. */
+const ThikrButton = GObject.registerClass(
+class ThikrButtonClass extends PanelMenu.Button {
+    _init(extension) {
+        PanelMenu.Button.prototype._init.call(this, 0.5, _('Thikr'), true);
+        this._extension = extension;
+        this.set_style(PANEL_BUTTON_STYLE);
+        this.label = new St.Label({
+            y_align: Clutter.ActorAlign.CENTER,
+            style_class: 'hijri-thikr-label',
+        });
+        this.label_actor = this.label;
+        this.add_child(this.label);
+        this.update();
+    }
+
+    update() {
+        this.label.set_text(this._extension.getThikrText());
+        this.label.set_style(panelLabelStyle(this._extension));
+    }
+
+    vfunc_event(event) {
+        const type = event.type();
+        if (type === Clutter.EventType.BUTTON_PRESS || type === Clutter.EventType.TOUCH_BEGIN) {
+            this._extension.nextThikr();
+            return Clutter.EVENT_STOP;
+        }
+        return Clutter.EVENT_PROPAGATE;
+    }
+});
+
 /* ----- Extension object (40–44 lifecycle) -------------------------------- */
 
 class Extension40to44 {
@@ -1067,6 +1197,9 @@ class Extension40to44 {
         this._centerPosition = CenterPosition.LEFT;
         this._centerBoxSignalIds = [];
         this._centerReorderId = 0;
+        this._thikrIndicator = null;
+        this._thikrTimerId   = 0;
+        this._thikrIndex     = 0;
     }
 
     enable() {
@@ -1092,6 +1225,61 @@ class Extension40to44 {
             this._settings.get_boolean('use-theme-calendar-text-color');
 
         this._addToPanel();
+        this._thikrIndex = Math.floor(Math.random() * THIKR.length);
+        this._syncThikr();
+    }
+
+    getAllThikrTexts() {
+        return THIKR.map(thikr => (this._thikrLanguage === ThikrLanguage.ARABIC ? thikr.ar : thikr.en));
+    }
+
+    getThikrText() {
+        const thikr = THIKR[this._thikrIndex];
+        return this._thikrLanguage === ThikrLanguage.ARABIC ? thikr.ar : thikr.en;
+    }
+
+    nextThikr() {
+        this._thikrIndex = (this._thikrIndex + 1) % THIKR.length;
+        if (this._thikrIndicator)
+            this._thikrIndicator.update();
+        if (this._indicator)
+            this._indicator._updateCalendarThikr();
+    }
+
+    /* Applies the thikr settings: panel button, rotation timer and calendar label. */
+    _syncThikr() {
+        this._thikrInPanel    = this._settings.get_boolean('thikr-in-panel');
+        this._thikrInCalendar = this._settings.get_boolean('thikr-in-calendar');
+        this._thikrLanguage   = this._settings.get_int('thikr-language');
+
+        this._removeThikr();
+        if (this._thikrInPanel) {
+            this._thikrIndicator = new ThikrButton(this);
+            const position = this._settings.get_int('thikr-panel-position');
+            const boxIndex = [Position.FAR_LEFT, Position.RIGHT].includes(position) ? 0 : -1;
+            Main.panel.addToStatusArea('hijri-thikr', this._thikrIndicator,
+                position === Position.CENTER ? 0 : boxIndex, this._getBoxPosition(position));
+        }
+        if (this._thikrInPanel || this._thikrInCalendar) {
+            const minutes = Math.max(1, this._settings.get_int('thikr-interval'));
+            this._thikrTimerId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, minutes * 60, () => {
+                this.nextThikr();
+                return GLib.SOURCE_CONTINUE;
+            });
+        }
+        if (this._indicator)
+            this._indicator._updateCalendarThikr();
+    }
+
+    _removeThikr() {
+        if (this._thikrTimerId) {
+            GLib.Source.remove(this._thikrTimerId);
+            this._thikrTimerId = 0;
+        }
+        if (this._thikrIndicator) {
+            this._thikrIndicator.destroy();
+            this._thikrIndicator = null;
+        }
     }
 
     _addToPanel() {
@@ -1314,6 +1502,7 @@ class Extension40to44 {
     }
 
     disable() {
+        this._removeThikr();
         this._unwatchCenterBox();
 
         if (this._spacer) {

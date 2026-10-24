@@ -104,5 +104,40 @@
       <default>true</default>
     </key>
 
+    <key name="thikr-in-panel" type="b">
+      <summary>Show thikr in the top bar</summary>
+      <description>Show a short thikr as its own item in the top bar.</description>
+      <default>false</default>
+    </key>
+
+    <!-- 0 = Far-Left · 1 = Left · 2 = Center · 3 = Right · 4 = Far-Right -->
+    <key name="thikr-panel-position" type="i">
+      <range min="0" max="4"/>
+      <summary>Thikr position</summary>
+      <description>Location of the thikr in the top bar.</description>
+      <default>3</default>
+    </key>
+
+    <key name="thikr-in-calendar" type="b">
+      <summary>Show thikr in the calendar</summary>
+      <description>Show a short thikr at the top left of the popup calendar.</description>
+      <default>false</default>
+    </key>
+
+    <!-- 0 = English transliteration · 1 = Arabic -->
+    <key name="thikr-language" type="i">
+      <range min="0" max="1"/>
+      <summary>Thikr language</summary>
+      <description>Show the thikr in Arabic or in English transliteration.</description>
+      <default>1</default>
+    </key>
+
+    <key name="thikr-interval" type="i">
+      <range min="1" max="1440"/>
+      <summary>Thikr interval</summary>
+      <description>Minutes between thikr changes.</description>
+      <default>5</default>
+    </key>
+
   </schema>
 </schemalist>
