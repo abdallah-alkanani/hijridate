@@ -86,6 +86,19 @@ const PANEL_LABEL_STYLE = 'font-size: 14px; font-weight: bold; margin: 0; paddin
 // Constructing an Intl formatter costs far more than using it, and every
 // calendar update asks for the same few. Created in enable(), dropped in disable().
 let formatterCache = null;
+let formatterTimeZone = null;
+
+// Formatters keep the time zone they were created in. GNOME Shell resets JS date
+// caches when the system zone changes; drop the cache then too. Returns true if
+// the zone changed.
+function refreshFormatterTimeZone() {
+    const timeZone = new Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (timeZone === formatterTimeZone)
+        return false;
+    formatterCache?.clear();
+    formatterTimeZone = timeZone;
+    return true;
+}
 
 function cachedIntl(Ctor, locale, options) {
     const key = `${Ctor.name}|${locale}|${JSON.stringify(options)}`;
@@ -319,7 +332,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
         // The calendar is built the first time the menu opens.
         this._calendarDirty = false;
         this._calendarToday = null;
-        this._popupStylesheetTheme = null;
+        this._popupStylesheetLoaded = false;
         this._addSettingsButton();
         this._menuOpenChangedId = this.menu.connect('open-state-changed', (menu, isOpen) => {
             if (isOpen) {
@@ -394,7 +407,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
                 case 'thikr-in-calendar':
                 case 'thikr-language':
                 case 'thikr-interval':
-                    this._extension._syncThikr();
+                    this._extension._syncThikr(key);
                     break;
                 case 'calendar-text-color':
                     this._extension._calendarTextColor = settings.get_string('calendar-text-color');
@@ -640,6 +653,8 @@ class HijriDateButtonClass extends PanelMenu.Button {
     }
 
     _ensureCalendar() {
+        if (refreshFormatterTimeZone())
+            this._calendarDirty = true;
         this._loadPopupStylesheet();
         if (!this._calendarGrid)
             this._addCalendar();
@@ -654,14 +669,16 @@ class HijriDateButtonClass extends PanelMenu.Button {
             this._ensureCalendar();
     }
 
+    // A shell theme change copies loaded stylesheets into the new theme
+    // (Main.loadTheme()), so load only if it is not there yet.
     _loadPopupStylesheet() {
-        // A shell theme change replaces the St.Theme and drops our stylesheet.
+        const file = this._extension.dir.get_child(POPUP_STYLESHEET);
         const theme = St.ThemeContext.get_for_stage(global.stage).get_theme();
-        if (theme === this._popupStylesheetTheme)
+        if (theme.get_custom_stylesheets().some(f => f.equal(file)))
             return;
         try {
-            theme.load_stylesheet(this._extension.dir.get_child(POPUP_STYLESHEET));
-            this._popupStylesheetTheme = theme;
+            theme.load_stylesheet(file);
+            this._popupStylesheetLoaded = true;
         } catch (e) {
             console.error('Failed to load popup stylesheet:', e);
         }
@@ -1061,6 +1078,8 @@ class HijriDateButtonClass extends PanelMenu.Button {
     }
 
     _updateLabel() {
+        if (refreshFormatterTimeZone())
+            this._calendarDirty = true;
         const text = getHijriDate(
             this._extension._language,
             this._extension._numberLanguage,
@@ -1118,9 +1137,11 @@ class HijriDateButtonClass extends PanelMenu.Button {
             this.menu.disconnect(this._menuOpenChangedId);
         if (this._settingsChangedId)
             this._extension._settings.disconnect(this._settingsChangedId);
-        this._popupStylesheetTheme?.unload_stylesheet(
-            this._extension.dir.get_child(POPUP_STYLESHEET));
-        this._popupStylesheetTheme = null;
+        if (this._popupStylesheetLoaded) {
+            St.ThemeContext.get_for_stage(global.stage).get_theme()
+                .unload_stylesheet(this._extension.dir.get_child(POPUP_STYLESHEET));
+            this._popupStylesheetLoaded = false;
+        }
         super.destroy();
     }
 });
@@ -1181,6 +1202,7 @@ export default class HijriDateDisplayExtension extends Extension {
 
     enable() {
         formatterCache = new Map();
+        refreshFormatterTimeZone();
         this._settings = this.getSettings();
 
         this._position       = this._settings.get_int('position');
@@ -1224,19 +1246,38 @@ export default class HijriDateDisplayExtension extends Extension {
         this._indicator?._updateCalendarThikr();
     }
 
-    // Applies the thikr settings: panel button, rotation timer and calendar label.
-    _syncThikr() {
+    // Applies the thikr settings (all of them, or only what `key` affects): panel
+    // button, rotation timer and calendar label.
+    _syncThikr(key = null) {
         this._thikrInPanel    = this._settings.get_boolean('thikr-in-panel');
         this._thikrInCalendar = this._settings.get_boolean('thikr-in-calendar');
         this._thikrLanguage   = this._settings.get_int('thikr-language');
 
-        this._removeThikr();
+        if (!key || ['thikr-in-panel', 'thikr-panel-position'].includes(key))
+            this._syncThikrButton();
+        else
+            this._thikrIndicator?.update();
+        if (!key || ['thikr-in-panel', 'thikr-in-calendar', 'thikr-interval'].includes(key))
+            this._syncThikrTimer();
+        this._indicator?._updateCalendarThikr();
+    }
+
+    _syncThikrButton() {
+        this._thikrIndicator?.destroy();
+        this._thikrIndicator = null;
         if (this._thikrInPanel) {
             this._thikrIndicator = new ThikrButton(this);
             const position = this._settings.get_int('thikr-panel-position');
             const boxIndex = [Position.FAR_LEFT, Position.RIGHT].includes(position) ? 0 : -1;
             Main.panel.addToStatusArea('hijri-thikr', this._thikrIndicator,
                 position === Position.CENTER ? 0 : boxIndex, this._getBoxPosition(position));
+        }
+    }
+
+    _syncThikrTimer() {
+        if (this._thikrTimerId) {
+            GLib.Source.remove(this._thikrTimerId);
+            this._thikrTimerId = 0;
         }
         if (this._thikrInPanel || this._thikrInCalendar) {
             const minutes = Math.max(1, this._settings.get_int('thikr-interval'));
@@ -1245,7 +1286,6 @@ export default class HijriDateDisplayExtension extends Extension {
                 return GLib.SOURCE_CONTINUE;
             });
         }
-        this._indicator?._updateCalendarThikr();
     }
 
     _removeThikr() {
@@ -1493,5 +1533,6 @@ export default class HijriDateDisplayExtension extends Extension {
         }
         this._settings = null;
         formatterCache = null;
+        formatterTimeZone = null;
     }
 }
