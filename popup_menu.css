@@ -122,3 +122,21 @@
     font-weight: bold;
     border-radius: 999px;
 }
+
+/* Thikr, top left of the calendar header; mirrors the Today button. */
+.hijri-calendar-thikr-button {
+    padding: 2px 8px;
+    margin-right: 8px;
+    border-radius: 10px;
+    background-color: transparent;
+}
+
+.hijri-calendar-thikr-button:hover,
+.hijri-calendar-thikr-button:focus {
+    background-color: rgba(128,128,128,0.16);
+}
+
+.hijri-calendar-thikr {
+    font-size: 12px;
+    font-weight: 600;
+}

@@ -42,6 +42,10 @@ const CalendarMethodTextRAW = {
     [CalendarMethod.ISLAMIC]    : 'Islamic (observational)',
     [CalendarMethod.RGSA]       : 'Islamic (Saudi, regional)',
 };
+const ThikrLanguageTextRAW = {
+    0: 'English',
+    1: 'Arabic',
+};
 const YearSuffixStyleTextRAW = {
     [YearSuffixStyle.AH] : 'AH',
     [YearSuffixStyle.HEH]: 'هـ',
@@ -365,6 +369,7 @@ export default class HijriDatePreferences extends ExtensionPreferences {
         const NumberLanguageText  = tr(NumberLanguageTextRAW);
         const CalendarMethodText  = tr(CalendarMethodTextRAW);
         const YearSuffixStyleText = tr(YearSuffixStyleTextRAW);
+        const ThikrLanguageText   = tr(ThikrLanguageTextRAW);
 
 
         const page = new Adw.PreferencesPage({
@@ -598,6 +603,62 @@ export default class HijriDatePreferences extends ExtensionPreferences {
         };
         yearSwitch.connect('notify::active', toggleSuffixSensitivity);
         toggleSuffixSensitivity();
+
+        /* ─Thikr─ */
+
+        const thikrGroup = new Adw.PreferencesGroup({
+            title: _('Thikr'),
+            description: _('Show a short thikr that changes every few minutes. Click it to show the next one.'),
+        });
+        page.add(thikrGroup);
+
+        const addSwitchRow = (title, key) => {
+            const row = new Adw.ActionRow({ title, activatable: true });
+            const sw = new Gtk.Switch({
+                active: settings.get_boolean(key),
+                valign: Gtk.Align.CENTER,
+            });
+            row.add_suffix(sw);
+            row.activatable_widget = sw;
+            settings.bind(key, sw, 'active', Gio.SettingsBindFlags.DEFAULT);
+            thikrGroup.add(row);
+            return sw;
+        };
+
+        const panelSwitch = addSwitchRow(_('Show in Top Bar'), 'thikr-in-panel');
+
+        const thikrPositionRow = new SegmentedRow(
+            _('Top Bar Position'), PositionText,
+            settings.get_int('thikr-panel-position'),
+            idx => settings.set_int('thikr-panel-position', idx)
+        );
+        thikrGroup.add(thikrPositionRow.row);
+        const syncThikrPosition = () => {
+            thikrPositionRow._buttons.forEach(btn => (btn.sensitive = panelSwitch.active));
+        };
+        panelSwitch.connect('notify::active', syncThikrPosition);
+        syncThikrPosition();
+
+        addSwitchRow(_('Show in Calendar'), 'thikr-in-calendar');
+
+        thikrGroup.add(new SegmentedRow(
+            _('Thikr Language'), ThikrLanguageText,
+            settings.get_int('thikr-language'),
+            idx => settings.set_int('thikr-language', idx)
+        ).row);
+
+        const intervalRow = new Adw.ActionRow({
+            title: _('Change Every'),
+            subtitle: _('Minutes'),
+            activatable: false,
+            selectable: false,
+        });
+        intervalRow.add_css_class('no-row-hover');
+        const intervalSpin = Gtk.SpinButton.new_with_range(1, 1440, 1);
+        intervalSpin.valign = Gtk.Align.CENTER;
+        settings.bind('thikr-interval', intervalSpin, 'value', Gio.SettingsBindFlags.DEFAULT);
+        intervalRow.add_suffix(intervalSpin);
+        thikrGroup.add(intervalRow);
 
         const createColorExpander = (title, subtitle, colorKey, useThemeKey) => {
             const colorExpander = new Adw.ExpanderRow({
