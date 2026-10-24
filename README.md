@@ -36,6 +36,11 @@ gnome-extensions pack --extra-source=popup_menu.css --extra-source=prefs.css
 
 `popup_menu.css` is loaded when the popup is first opened, not as the
 automatic `stylesheet.css`, so it has to be listed explicitly.
-`gnome-extensions pack` also compiles the settings schema, which GNOME 40–43
-need; after changing `schemas/*.gschema.xml` in a checkout, run
-`glib-compile-schemas schemas/` and commit `schemas/gschemas.compiled`.
+GNOME 40–43 also need the compiled settings schema, which `gnome-extensions
+pack` from GNOME 44 and later leaves out. After changing
+`schemas/*.gschema.xml`, run `glib-compile-schemas schemas/`, commit
+`schemas/gschemas.compiled`, and add it to the zip:
+
+```sh
+zip hijridate@date.shell-extension.zip schemas/gschemas.compiled
+```
