@@ -570,6 +570,10 @@ class HijriDateButtonClass extends PanelMenu.Button {
     }
 
     _syncHeaderSpacer() {
+        /* Theme nodes only exist on stage; the notify::width and style-changed
+           handlers run this again once the popup is shown. */
+        if (!this._calendarTodayButton.get_stage())
+            return;
         const [, naturalWidth] = this._calendarTodayButton.get_preferred_width(-1);
         let width = naturalWidth;
         const themeNode = this._calendarTodayButton.get_theme_node();
