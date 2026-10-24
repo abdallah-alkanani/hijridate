@@ -34,6 +34,30 @@ const CenterPosition = { LEFT: 0, MIDDLE_LEFT: 1, RIGHT: 2, MIDDLE_RIGHT: 3 };
 
 const DEFAULT_SPACING = 0;
 const YEAR_RANGE_LIMIT = 200;
+/* Mean length of a Hijri month (30-year tabular cycle: 10631 days / 360 months). */
+const MEAN_HIJRI_MONTH_DAYS = 10631 / 360;
+
+/* Loading an extension stylesheet restyles every widget in the shell, so the
+   popup's styles are loaded when it is first opened instead of on enable()
+   (which also runs on every unlock). The panel button is styled inline. */
+const POPUP_STYLESHEET = 'popup_menu.css';
+const PANEL_BUTTON_STYLE = 'padding: 0 6px; transition-duration: 150ms;';
+const PANEL_LABEL_STYLE = 'font-size: 14px; font-weight: bold; margin: 0; padding: 0;';
+
+/* Constructing an Intl formatter costs far more than using it, and every
+   calendar update asks for the same few. Created in enable(), dropped in disable(). */
+let formatterCache = null;
+
+function cachedIntl(Ctor, locale, options) {
+    const key = `${Ctor.name}|${locale}|${JSON.stringify(options)}`;
+    let fmt = formatterCache ? formatterCache.get(key) : null;
+    if (!fmt) {
+        fmt = new Ctor(locale, options);
+        if (formatterCache)
+            formatterCache.set(key, fmt);
+    }
+    return fmt;
+}
 
 /* ----- Date helper -------------------------------------------------------- */
 
@@ -73,12 +97,12 @@ function buildHijriLocale(lang, calendarMethod) {
 }
 
 function createHijriFormatter(locale, options, fallbackLocale) {
-    const fmt = new Intl.DateTimeFormat(locale, options);
+    const fmt = cachedIntl(Intl.DateTimeFormat, locale, options);
     const calendar = fmt.resolvedOptions().calendar;
     if (calendar && calendar.startsWith('islamic'))
         return fmt;
 
-    return new Intl.DateTimeFormat(fallbackLocale, options);
+    return cachedIntl(Intl.DateTimeFormat, fallbackLocale, options);
 }
 
 function buildHijriFormatters(lang, numLng, calendarMethod = CalendarMethod.UMM_AL_QURA) {
@@ -124,6 +148,10 @@ function getHijriNumericParts(date, formatter) {
         month: parseInt(dict.month, 10),
         year: parseInt(dict.year, 10),
     };
+}
+
+function isSameHijriMonth(left, right) {
+    return left.month === right.month && left.year === right.year;
 }
 
 function getHijriDate(
@@ -223,21 +251,30 @@ class HijriDateButtonClass extends PanelMenu.Button {
         this._updateColor();
 
         this.add_style_class_name('hijri-date-button');
+        this.set_style(PANEL_BUTTON_STYLE);
 
         /* 40–44: menu.actor is valid */
         this.menu.actor.add_style_class_name('popup-menu-below-panel');
         this.menu.setSourceAlignment(0.5);
 
-        this._addCalendar();
-        this._addSettingsButton();
+        /* The calendar is built the first time the menu opens. This handler
+           must be connected before the separator is added: PopupMenu updates
+           separator visibility in its own open-state-changed handler, and
+           handlers run in connection order. */
+        this._calendarDirty = false;
+        this._calendarToday = null;
+        this._popupStylesheetTheme = null;
 
         this._menuOpenChangedId = this.menu.connect('open-state-changed', (menu, isOpen) => {
             if (isOpen) {
+                this._ensureCalendar();
                 this._updateCalendarColor();
             } else {
                 this._hidePickers();
             }
         });
+
+        this._addSettingsButton();
 
         this._settingsChangedId = this._extension._settings.connect('changed', (settings, key) => {
             switch (key) {
@@ -261,7 +298,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
                     break;
                 case 'week-language':
                     this._extension._weekLanguage = settings.get_int('week-language');
-                    this._updateCalendar();
+                    this._queueCalendarUpdate();
                     break;
                 case 'number-language':
                     this._extension._numberLanguage = settings.get_int('number-language');
@@ -310,7 +347,9 @@ class HijriDateButtonClass extends PanelMenu.Button {
             GLib.PRIORITY_DEFAULT,
             60,
             () => {
-                this._updateDate();
+                this._updateLabel();
+                if (this.menu.isOpen)
+                    this._ensureCalendar();
                 return GLib.SOURCE_CONTINUE;
             }
         );
@@ -471,10 +510,63 @@ class HijriDateButtonClass extends PanelMenu.Button {
             x_expand: true,
         });
         calendarBox.add_child(this._calendarGrid);
+        this._createCalendarCells();
 
-        this.menu.addMenuItem(calendarItem);
+        this.menu.addMenuItem(calendarItem, 0);
         this._updateCalendar();
-        this._updateCalendarColor();
+    }
+
+    _createCalendarCells() {
+        this._weekdayLabels = [];
+        for (let i = 0; i < 7; i++) {
+            const dayLabel = new St.Label({
+                x_align: Clutter.ActorAlign.CENTER,
+                y_align: Clutter.ActorAlign.CENTER,
+            });
+            this._calendarGridLayout.attach(dayLabel, i, 0, 1, 1);
+            this._weekdayLabels.push(dayLabel);
+        }
+
+        this._dayButtons = [];
+        for (let i = 0; i < 42; i++) {
+            const dayButton = new St.Button({
+                x_align: Clutter.ActorAlign.CENTER,
+                y_align: Clutter.ActorAlign.CENTER,
+                can_focus: false,
+                reactive: false,
+                track_hover: false,
+            });
+            this._calendarGridLayout.attach(dayButton, i % 7, Math.floor(i / 7) + 1, 1, 1);
+            this._dayButtons.push(dayButton);
+        }
+    }
+
+    _ensureCalendar() {
+        this._loadPopupStylesheet();
+        if (!this._calendarGrid)
+            this._addCalendar();
+        else if (this._calendarDirty || !isSameDay(this._calendarToday, new Date()))
+            this._updateCalendar();
+    }
+
+    /* Settings changes while the menu is closed are applied when it next opens. */
+    _queueCalendarUpdate() {
+        this._calendarDirty = true;
+        if (this.menu.isOpen)
+            this._ensureCalendar();
+    }
+
+    _loadPopupStylesheet() {
+        /* A shell theme change replaces the St.Theme and drops our stylesheet. */
+        const theme = St.ThemeContext.get_for_stage(global.stage).get_theme();
+        if (theme === this._popupStylesheetTheme)
+            return;
+        try {
+            theme.load_stylesheet(Me.dir.get_child(POPUP_STYLESHEET));
+            this._popupStylesheetTheme = theme;
+        } catch (e) {
+            logError(e, 'Failed to load popup stylesheet');
+        }
     }
 
     _syncHeaderSpacer() {
@@ -525,37 +617,37 @@ class HijriDateButtonClass extends PanelMenu.Button {
         this._viewDate = shiftDateByDays(adjustedDate, -offsetDays);
     }
 
+    /* Hijri and Gregorian days line up one to one, so the month starts
+       (day - 1) days back. A month starts where the month number changes, not
+       where the day reads 1: ICU's astronomical 'islamic' calendar has months
+       numbered from day 2, hence the forward correction. */
     _getMonthStartAdjustedDate(adjustedDate, formatters) {
-        let date = new Date(adjustedDate);
-        let parts = getHijriNumericParts(date, formatters.numericParts);
-        while (parts.day !== 1) {
-            date.setDate(date.getDate() - 1);
-            parts = getHijriNumericParts(date, formatters.numericParts);
+        const parts = getHijriNumericParts(adjustedDate, formatters.numericParts);
+        let date = shiftDateByDays(adjustedDate, 1 - parts.day);
+        for (let guard = 0; guard < 3; guard++) {
+            if (isSameHijriMonth(getHijriNumericParts(date, formatters.numericParts), parts))
+                break;
+            date = shiftDateByDays(date, 1);
         }
         return date;
     }
 
+    /* Hijri months have 29 or 30 days, so 29 days after a month start is in
+       the next month or on this month's last day. */
     _getNextHijriMonthStart(adjustedMonthStart, formatters) {
-        let date = new Date(adjustedMonthStart);
-        let parts = getHijriNumericParts(date, formatters.numericParts);
-        const month = parts.month;
-        const year = parts.year;
-        do {
-            date.setDate(date.getDate() + 1);
-            parts = getHijriNumericParts(date, formatters.numericParts);
-        } while (parts.month === month && parts.year === year);
-        return date;
+        const startParts = getHijriNumericParts(adjustedMonthStart, formatters.numericParts);
+        let date = shiftDateByDays(adjustedMonthStart, 29);
+        for (let guard = 0; guard < 3; guard++) {
+            if (!isSameHijriMonth(getHijriNumericParts(date, formatters.numericParts), startParts))
+                break;
+            date = shiftDateByDays(date, 1);
+        }
+        return this._getMonthStartAdjustedDate(date, formatters);
     }
 
     _getPrevHijriMonthStart(adjustedMonthStart, formatters) {
-        let date = new Date(adjustedMonthStart);
-        date.setDate(date.getDate() - 1);
-        let parts = getHijriNumericParts(date, formatters.numericParts);
-        while (parts.day !== 1) {
-            date.setDate(date.getDate() - 1);
-            parts = getHijriNumericParts(date, formatters.numericParts);
-        }
-        return date;
+        return this._getMonthStartAdjustedDate(
+            shiftDateByDays(adjustedMonthStart, -1), formatters);
     }
 
     _getMonthStartDatesForYear(formatters, targetParts) {
@@ -619,7 +711,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
         this._yearPickerBaseYear = baseYear;
         const start = Math.max(this._yearRangeMin, baseYear - this._yearPickerRange);
         const end = Math.min(this._yearRangeMax, baseYear + this._yearPickerRange);
-        const yearFormatter = new Intl.NumberFormat(formatters.locale, {
+        const yearFormatter = cachedIntl(Intl.NumberFormat, formatters.locale, {
             numberingSystem: formatters.numSys,
         });
 
@@ -721,33 +813,22 @@ class HijriDateButtonClass extends PanelMenu.Button {
         this._updateCalendar();
     }
 
+    /* Jump by the mean month length to the middle of the target month, then
+       correct. Aiming mid-month keeps a day or two of drift from landing in a
+       neighbouring month; it converges in one or two steps over the full range. */
     _findAdjustedDateForHijriMonthYear(targetYear, targetMonth, anchorAdjustedDate, formatters) {
         let date = new Date(anchorAdjustedDate);
-        let parts = getHijriNumericParts(date, formatters.numericParts);
-        const forward = targetYear > parts.year ||
-            (targetYear === parts.year && targetMonth > parts.month);
-        const step = forward ? 1 : -1;
-        let guard = 0;
-        const maxSteps = Math.ceil((YEAR_RANGE_LIMIT + 2) * 370);
-
-        while ((parts.year !== targetYear || parts.month !== targetMonth) && guard < maxSteps) {
-            date.setDate(date.getDate() + step);
-            parts = getHijriNumericParts(date, formatters.numericParts);
-            guard++;
+        for (let guard = 0; guard < 10; guard++) {
+            const parts = getHijriNumericParts(date, formatters.numericParts);
+            const monthDelta = (targetYear - parts.year) * 12 + (targetMonth - parts.month);
+            if (monthDelta === 0)
+                return this._getMonthStartAdjustedDate(date, formatters);
+            date = shiftDateByDays(date,
+                (1 - parts.day) + Math.round(monthDelta * MEAN_HIJRI_MONTH_DAYS) + 14);
         }
 
-        if (parts.year !== targetYear || parts.month !== targetMonth) {
-            console.warn('Hijri calendar lookup exceeded safe range');
-            return null;
-        }
-
-        while (parts.day !== 1 && guard < maxSteps) {
-            date.setDate(date.getDate() - 1);
-            parts = getHijriNumericParts(date, formatters.numericParts);
-            guard++;
-        }
-
-        return date;
+        log('Hijri calendar lookup did not converge');
+        return null;
     }
 
     _updateCalendar() {
@@ -800,38 +881,23 @@ class HijriDateButtonClass extends PanelMenu.Button {
         const gridStartDate = new Date(firstOfDisplayDate);
         gridStartDate.setDate(gridStartDate.getDate() - firstWeekday);
 
-        this._calendarGrid.get_children().forEach(child => child.destroy());
-
         const weekLocale = buildHijriLocale(
             this._extension._weekLanguage,
             this._extension._calendarMethod
         );
-        const weekdayFormatter = new Intl.DateTimeFormat(weekLocale, { weekday: 'narrow' });
+        const weekdayFormatter = cachedIntl(Intl.DateTimeFormat, weekLocale, { weekday: 'narrow' });
         const arabicWeekdays = this._extension._weekLanguage === Language.ARABIC;
-        const weekdayLabels = [];
         const weekdayBase = new Date(1970, 0, 4); // Sunday
-        for (let i = 0; i < 7; i++) {
-            const weekdayDate = new Date(weekdayBase);
-            weekdayDate.setDate(weekdayBase.getDate() + i);
-            weekdayLabels.push(weekdayFormatter.format(weekdayDate));
-        }
-
-        weekdayLabels.forEach((label, index) => {
-            const dayLabel = new St.Label({
-                text: label,
-                style_class: arabicWeekdays
-                    ? 'hijri-calendar-weekday hijri-calendar-weekday-arabic'
-                    : 'hijri-calendar-weekday',
-                x_align: Clutter.ActorAlign.CENTER,
-                y_align: Clutter.ActorAlign.CENTER,
-            });
-            this._calendarGridLayout.attach(dayLabel, index, 0, 1, 1);
+        this._weekdayLabels.forEach((dayLabel, i) => {
+            dayLabel.set_text(weekdayFormatter.format(shiftDateByDays(weekdayBase, i)));
+            dayLabel.set_style_class_name(arabicWeekdays
+                ? 'hijri-calendar-weekday hijri-calendar-weekday-arabic'
+                : 'hijri-calendar-weekday');
         });
 
-        for (let i = 0; i < 42; i++) {
-            const cellDate = new Date(gridStartDate);
-            cellDate.setDate(gridStartDate.getDate() + i);
-
+        const rtl = this._calendarGrid.get_text_direction() === Clutter.TextDirection.RTL;
+        this._dayButtons.forEach((dayButton, i) => {
+            const cellDate = shiftDateByDays(gridStartDate, i);
             const displayDate = shiftDateByDays(cellDate, offsetDays);
             const cellParts = getHijriNumericParts(displayDate, formatters.numericParts);
             const isCurrentMonth = cellParts.month === targetParts.month &&
@@ -842,59 +908,53 @@ class HijriDateButtonClass extends PanelMenu.Button {
             if (Math.floor(i / 7) === 0)
                 styleClass = `calendar-day-top ${styleClass}`;
 
-            const leftMost = this._calendarGrid.get_text_direction() === Clutter.TextDirection.RTL
-                ? i % 7 === 6
-                : i % 7 === 0;
+            const leftMost = rtl ? i % 7 === 6 : i % 7 === 0;
             if (leftMost)
                 styleClass = `calendar-day-left ${styleClass}`;
 
-            const dayButton = new St.Button({
-                label: formatters.displayDay.format(displayDate),
-                style_class: styleClass,
-                x_align: Clutter.ActorAlign.CENTER,
-                y_align: Clutter.ActorAlign.CENTER,
-                can_focus: false,
-                reactive: false,
-                track_hover: false,
-            });
+            if (!isCurrentMonth)
+                styleClass += ' other-month calendar-other-month-day';
+            if (isToday)
+                styleClass += ' today calendar-today';
 
-            if (!isCurrentMonth) {
-                dayButton.add_style_class_name('other-month');
-                dayButton.add_style_class_name('calendar-other-month-day');
-            }
-            if (isToday) {
-                dayButton.add_style_class_name('today');
-                dayButton.add_style_class_name('calendar-today');
-            }
+            dayButton.set_style_class_name(styleClass);
+            dayButton.set_label(formatters.displayDay.format(displayDate));
+        });
 
-            this._calendarGridLayout.attach(dayButton, i % 7, Math.floor(i / 7) + 1, 1, 1);
-        }
+        this._calendarToday = baseDate;
+        this._calendarDirty = false;
         this._updateCalendarColor();
     }
 
-    _updateDate() {
-        this.label.set_text(
-            getHijriDate(
-                this._extension._language,
-                this._extension._numberLanguage,
-                this._extension._calendarMethod,
-                this._extension._showYear,
-                this._extension._yearSuffixStyle,
-                this._extension._dateFormat,
-                this._extension._dateOffset
-            )
+    _updateLabel() {
+        const text = getHijriDate(
+            this._extension._language,
+            this._extension._numberLanguage,
+            this._extension._calendarMethod,
+            this._extension._showYear,
+            this._extension._yearSuffixStyle,
+            this._extension._dateFormat,
+            this._extension._dateOffset
         );
-        this._updateCalendar();
+        if (this.label.text !== text)
+            this.label.set_text(text);
+    }
+
+    _updateDate() {
+        this._updateLabel();
+        this._queueCalendarUpdate();
     }
 
     _updateColor() {
         const style = this._extension._useThemeTextColor
-            ? null
-            : `color: ${this._extension._textColor};`;
+            ? PANEL_LABEL_STYLE
+            : `${PANEL_LABEL_STYLE} color: ${this._extension._textColor};`;
         this.label.set_style(style);
     }
 
     _updateCalendarColor() {
+        if (!this._calendarGrid)
+            return;
         const customColor = this._extension._calendarTextColor;
         const usesCustomColor = !this._extension._useThemeCalendarTextColor &&
             /^#[0-9A-Fa-f]{6}$/.test(customColor);
@@ -974,6 +1034,9 @@ class HijriDateButtonClass extends PanelMenu.Button {
             this.menu.disconnect(this._menuOpenChangedId);
         if (this._settingsChangedId)
             this._extension._settings.disconnect(this._settingsChangedId);
+        if (this._popupStylesheetTheme)
+            this._popupStylesheetTheme.unload_stylesheet(Me.dir.get_child(POPUP_STYLESHEET));
+        this._popupStylesheetTheme = null;
 
         PanelMenu.Button.prototype.destroy.call(this);
     }
@@ -1003,6 +1066,7 @@ class Extension40to44 {
     }
 
     enable() {
+        formatterCache = new Map();
         this._settings = ExtensionUtils.getSettings();
 
         this._position        = this._settings.get_int('position');
@@ -1260,6 +1324,7 @@ class Extension40to44 {
             this._indicator = null;
         }
         this._settings = null;
+        formatterCache = null;
     }
 }
 
