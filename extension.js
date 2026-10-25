@@ -70,9 +70,8 @@ const THIKR = [
 
 const DEFAULT_SPACING = 0;
 const YEAR_RANGE_LIMIT = 200;
-// Fixed-width slot for the calendar header thikr; long ones wrap. Its height is
-// that of the tallest thikr, so the popup keeps its size as the thikr changes.
-const THIKR_HEADER_WIDTH = 150;
+// Widest the calendar header thikr slot gets; longer thikrs wrap.
+const THIKR_HEADER_MAX_WIDTH = 170;
 // Mean length of a Hijri month (30-year tabular cycle: 10631 days / 360 months).
 const MEAN_HIJRI_MONTH_DAYS = 10631 / 360;
 
@@ -462,7 +461,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
             child: this._calendarThikrLabel,
             label_actor: this._calendarThikrLabel,
             style_class: 'hijri-calendar-thikr-button',
-            x_align: Clutter.ActorAlign.START,
+            x_align: Clutter.ActorAlign.CENTER,
             y_align: Clutter.ActorAlign.CENTER,
             can_focus: true,
             reactive: true,
@@ -591,21 +590,32 @@ class HijriDateButtonClass extends PanelMenu.Button {
         this._updateCalendar();
     }
 
-    // Height of the tallest thikr at this width and font; cached until either changes.
-    _thikrSlotHeight(forWidth) {
+    // Slot for the header thikr: as wide as the widest thikr (up to
+    // THIKR_HEADER_MAX_WIDTH) and as tall as the tallest at that width, so the
+    // header keeps its size as the thikr changes. Cached per language and font.
+    _thikrSlotSize() {
         const label = this._calendarThikrLabel;
-        const key = `${this._extension._thikrLanguage}|${forWidth}|${label.get_theme_node().get_font().to_string()}`;
+        const key = `${this._extension._thikrLanguage}|${label.get_theme_node().get_font().to_string()}`;
         if (this._thikrSlotKey !== key) {
+            const button = this._calendarThikrButton;
+            const node = button.get_theme_node();
+            const margins = node.get_margin(St.Side.LEFT) + node.get_margin(St.Side.RIGHT);
+            const texts = this._extension.getAllThikrTexts();
             const current = label.text;
-            const heights = this._extension.getAllThikrTexts().map(text => {
+            const widths = texts.map(text => {
                 label.text = text;
-                return this._calendarThikrButton.get_preferred_height(forWidth)[1];
+                return button.get_preferred_width(-1)[1];
+            });
+            const width = Math.ceil(Math.min(THIKR_HEADER_MAX_WIDTH, Math.max(...widths) + margins));
+            const heights = texts.map(text => {
+                label.text = text;
+                return button.get_preferred_height(width - margins)[1];
             });
             label.text = current;
-            this._thikrSlotHeightValue = Math.ceil(Math.max(...heights));
+            this._thikrSlot = { width, height: Math.ceil(Math.max(...heights)) };
             this._thikrSlotKey = key;
         }
-        return this._thikrSlotHeightValue;
+        return this._thikrSlot;
     }
 
     _updateCalendarThikr() {
@@ -700,14 +710,11 @@ class HijriDateButtonClass extends PanelMenu.Button {
             return;
 
         const todayWidth = Math.max(0, outerWidth(this._calendarTodayButton));
-        const showThikr = this._calendarThikrButton.visible;
-        const sideWidth = showThikr ? Math.max(todayWidth, THIKR_HEADER_WIDTH) : todayWidth;
+        const slot = this._calendarThikrButton.visible ? this._thikrSlotSize() : null;
+        const sideWidth = slot ? Math.max(todayWidth, slot.width) : todayWidth;
         let style = `width: ${sideWidth}px;`;
-        if (showThikr) {
-            const node = this._calendarThikrButton.get_theme_node();
-            const forWidth = sideWidth - node.get_margin(St.Side.LEFT) - node.get_margin(St.Side.RIGHT);
-            style += ` min-height: ${this._thikrSlotHeight(forWidth)}px;`;
-        }
+        if (slot)
+            style += ` min-height: ${slot.height}px;`;
         this._calendarHeaderSpacer.set_style(style);
         this._calendarHeaderEndPad.visible = sideWidth > todayWidth;
         this._calendarHeaderEndPad.set_style(`width: ${sideWidth - todayWidth}px;`);
@@ -1401,6 +1408,8 @@ export default class HijriDateDisplayExtension extends Extension {
         this._centerBoxSignalIds = [
             centerBox.connect('child-added', queueReorder),
             centerBox.connect('child-removed', queueReorder),
+            // At exit the shell destroys the panel without disabling extensions.
+            centerBox.connect('destroy', () => this._unwatchCenterBox()),
         ];
         this._queueCenterReorder();
     }
