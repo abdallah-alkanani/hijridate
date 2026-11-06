@@ -7,7 +7,7 @@ a popup Hijri calendar.
 
 | GNOME Shell | Branch |
 | --- | --- |
-| 45-50 | `main` |
+| 45-51 | `main` |
 | 40-44 | `40-44` |
 
 ## Features

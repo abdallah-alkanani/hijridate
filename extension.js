@@ -5,12 +5,18 @@ import GObject from 'gi://GObject';
 import Clutter from 'gi://Clutter';
 import GLib from 'gi://GLib';
 import { Extension, gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
+import * as Config from 'resource:///org/gnome/shell/misc/config.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 
 // Enums
+// St.BoxLayout gained `orientation` in GNOME 48 and lost `vertical` in 51.
+const VERTICAL_BOX = parseInt(Config.PACKAGE_VERSION, 10) >= 48
+    ? {orientation: Clutter.Orientation.VERTICAL}
+    : {vertical: true};
+
 const Language = {
     ENGLISH: 0,
     ARABIC: 1
@@ -434,7 +440,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
         calendarItem.can_focus = false;
 
         const calendarBox = new St.BoxLayout({
-            vertical: true,
+            ...VERTICAL_BOX,
             style_class: 'hijri-calendar calendar',
             x_expand: true
         });
@@ -531,7 +537,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
         this._calendarHeader.add_child(this._calendarTodayButton);
 
         this._monthPickerBox = new St.BoxLayout({
-            vertical: true,
+            ...VERTICAL_BOX,
             style_class: 'hijri-calendar-picker',
             x_expand: true,
             visible: false
@@ -552,7 +558,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
         calendarBox.add_child(this._monthPickerBox);
 
         this._yearPickerBox = new St.BoxLayout({
-            vertical: true,
+            ...VERTICAL_BOX,
             style_class: 'hijri-calendar-picker',
             x_expand: true,
             visible: false,
@@ -563,7 +569,7 @@ class HijriDateButtonClass extends PanelMenu.Button {
         this._yearPickerBox.connect('scroll-event', this._onYearPickerScroll.bind(this));
 
         this._yearPickerList = new St.BoxLayout({
-            vertical: true,
+            ...VERTICAL_BOX,
             style_class: 'hijri-calendar-year-list',
             x_expand: true
         });
